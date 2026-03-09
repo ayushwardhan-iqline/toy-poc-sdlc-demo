@@ -3,8 +3,13 @@
   "compilerOptions": {
     "outDir": "dist",
     "types": ["node"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "rootDir": "src",
-    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo"
+    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
+    "composite": true,
+    "declaration": true,
+    "declarationMap": false
   },
   "include": ["src/**/*.ts"],
   "exclude": [
@@ -17,5 +22,13 @@
     "eslint.config.js",
     "eslint.config.cjs",
     "eslint.config.mjs"
+  ],
+  // Nx TypeScript sync manages this reference automatically based on the dependency graph.
+  // Both this config and libs/tsconfig.lib.json use "bundler" moduleResolution,
+  // so the project reference works without causing Drizzle Column type errors.
+  "references": [
+    {
+      "path": "../../libs/tsconfig.lib.json"
+    }
   ]
 }

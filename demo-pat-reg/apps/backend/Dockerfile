@@ -4,7 +4,7 @@
 #
 # Run the container with `nx docker:run @demo-pat-reg/backend -p 3000:3000`.
 #
-FROM docker.io/node:lts-alpine
+FROM oven/bun:alpine
 
 ENV HOST=0.0.0.0
 ENV PORT=3000
@@ -19,4 +19,4 @@ COPY dist .
 
 RUN bun install
 
-CMD [ "node", "main.js" ]
+CMD [ "bun", "run", "main.mjs" ]

@@ -1,0 +1,10 @@
+{
+  "name": "@demo-pat-reg/apps-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "implicitDependencies": [
+      "@demo-pat-reg/apps"
+    ]
+  }
+}

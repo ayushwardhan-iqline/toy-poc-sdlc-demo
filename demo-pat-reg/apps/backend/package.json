@@ -14,7 +14,7 @@
           "platform": "node",
           "outputPath": "apps/backend/dist",
           "format": [
-            "cjs"
+            "esm"
           ],
           "bundle": false,
           "main": "apps/backend/src/main.ts",
@@ -25,7 +25,7 @@
           "esbuildOptions": {
             "sourcemap": true,
             "outExtension": {
-              ".js": ".js"
+              ".js": ".mjs"
             }
           }
         },
@@ -36,7 +36,7 @@
             "esbuildOptions": {
               "sourcemap": false,
               "outExtension": {
-                ".js": ".js"
+                ".js": ".mjs"
               }
             }
           }
@@ -110,6 +110,7 @@
     }
   },
   "dependencies": {
+    "@demo-pat-reg/shared": "0.0.1",
     "express": "^4.21.2"
   }
 }

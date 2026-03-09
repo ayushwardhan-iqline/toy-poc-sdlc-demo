@@ -1,0 +1,19 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // Use "bundler" to match how apps resolve this library.
+    // This is an internal monorepo lib (not published to npm), so "bundler" is correct.
+    // "nodenext" (from tsconfig.base.json) would make Drizzle Column types incompatible
+    // with the apps when added via Nx TypeScript project references.
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.lib.tsbuildinfo",
+    "emitDeclarationOnly": false,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "references": []
+}

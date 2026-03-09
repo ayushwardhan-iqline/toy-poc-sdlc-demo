@@ -8,6 +8,15 @@
     },
     {
       "path": "./apps/backend"
+    },
+    {
+      "path": "./libs"
+    },
+    {
+      "path": "./apps-e2e"
+    },
+    {
+      "path": "./apps/frontend"
     }
   ]
 }
