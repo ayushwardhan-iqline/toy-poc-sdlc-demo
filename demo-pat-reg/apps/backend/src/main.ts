@@ -26,8 +26,8 @@ const queryClient = postgres(
 const db = drizzle(queryClient);
 
 app.get('/', (_req, res) => {
-  res.send('Hello World!');
-})
+  res.json({ message: 'Hello API' });
+});
 
 // Patients API
 app.get('/api/patients', async (_req, res) => {

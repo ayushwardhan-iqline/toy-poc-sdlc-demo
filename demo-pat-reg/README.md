@@ -80,3 +80,28 @@ And join the Nx community:
 - [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
 - [Our Youtube channel](https://www.youtube.com/@nxdevtools)
 - [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+
+## CI commands
+
+Run these from `demo-pat-reg/`:
+
+```sh
+bun run ci:affected:all
+```
+
+Run the full-scope local pipeline:
+
+```sh
+bun run ci:full:all
+```
+
+> Note: static analysis includes Semgrep via `uv x semgrep ...`. Install `uv` locally to run CI scripts outside GitHub Actions.
+
+## Run GitHub Actions locally (act)
+
+1. Create `.secrets` from `.secrets.example` and add your real values.
+2. Run:
+
+```sh
+bun run ci:local:pr
+```

@@ -1,0 +1,10 @@
+# Generated/build artifacts
+node_modules/
+dist/
+out-tsc/
+coverage/
+test-output/
+.nx/
+
+# Repo-specific generated outputs
+apps/frontend/dist/

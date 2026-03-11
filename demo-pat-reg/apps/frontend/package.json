@@ -2,6 +2,11 @@
   "name": "@demo-pat-reg/frontend",
   "version": "0.0.1",
   "private": true,
+  "scripts": {
+    "test:unit": "vitest run --passWithNoTests --exclude=\"**/*.integration.{spec,test}.{ts,tsx}\"",
+    "test:coverage": "vitest run --passWithNoTests --coverage.enabled=true --coverage.provider=v8 --coverage.reporter=text --coverage.reporter=lcov --exclude=\"**/*.integration.{spec,test}.{ts,tsx}\"",
+    "test:integration": "vitest run --passWithNoTests \"src/**/*.integration.{spec,test}.{ts,tsx}\""
+  },
   "nx": {
     "targets": {
       "build": {

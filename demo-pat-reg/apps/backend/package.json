@@ -2,6 +2,11 @@
   "name": "@demo-pat-reg/backend",
   "version": "0.0.1",
   "private": true,
+  "scripts": {
+    "test:unit": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage --passWithNoTests",
+    "test:integration": "bun ../../scripts/run-backend-integration.mjs"
+  },
   "nx": {
     "targets": {
       "build": {

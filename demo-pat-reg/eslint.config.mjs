@@ -1,4 +1,6 @@
 import nx from '@nx/eslint-plugin';
+import security from 'eslint-plugin-security';
+import sonarjs from 'eslint-plugin-sonarjs';
 
 export default [
   ...nx.configs['flat/base'],
@@ -44,13 +46,30 @@ export default [
       '**/*.cjs',
       '**/*.mjs',
     ],
+    plugins: {
+      security,
+      sonarjs,
+    },
     rules: {
+      ...(security.configs?.recommended?.rules ?? {}),
+      ...(sonarjs.configs?.recommended?.rules ?? {}),
       'no-console': 'warn',
       eqeqeq: 'error',
       'no-var': 'error',
       'prefer-const': 'error',
       complexity: ['error', 10],
+      'sonarjs/cognitive-complexity': ['error', 15],
+      'sonarjs/cors': 'off',
+      'sonarjs/slow-regex': 'off',
+      'sonarjs/x-powered-by': 'off',
       '@typescript-eslint/no-unused-vars': 'error',
+      'security/detect-object-injection': 'off',
+    },
+  },
+  {
+    files: ['scripts/**/*.{js,mjs,cjs,ts,mts,cts}'],
+    rules: {
+      'no-console': 'off',
     },
   },
 ];
