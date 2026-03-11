@@ -5,7 +5,15 @@ export default [
   ...nx.configs['flat/typescript'],
   ...nx.configs['flat/javascript'],
   {
-    ignores: ['**/dist', '**/out-tsc', '**/vite.config.*.timestamp*'],
+    ignores: [
+      '**/dist',
+      '**/out-tsc',
+      '**/vite.config.*.timestamp*',
+      'apps/frontend/src/design-system/defaults/**',
+      'apps/frontend/src/components/ui/**',
+      'apps/frontend/src/hooks/shadcn/**',
+      'apps/frontend/src/lib/shadcn/**',
+    ],
   },
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
@@ -36,7 +44,13 @@ export default [
       '**/*.cjs',
       '**/*.mjs',
     ],
-    // Override or add rules here
-    rules: {},
+    rules: {
+      'no-console': 'warn',
+      eqeqeq: 'error',
+      'no-var': 'error',
+      'prefer-const': 'error',
+      complexity: ['error', 10],
+      '@typescript-eslint/no-unused-vars': 'error',
+    },
   },
 ];

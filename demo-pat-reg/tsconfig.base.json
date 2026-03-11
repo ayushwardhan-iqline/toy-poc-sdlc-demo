@@ -5,9 +5,7 @@
     "emitDeclarationOnly": true,
     "importHelpers": true,
     "isolatedModules": true,
-    "lib": [
-      "esnext"
-    ],
+    "lib": ["esnext"],
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "noEmitOnError": true,

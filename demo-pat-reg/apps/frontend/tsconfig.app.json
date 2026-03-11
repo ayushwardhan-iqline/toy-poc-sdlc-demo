@@ -16,6 +16,10 @@
       "vite/client"
     ],
     "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "module": "esnext",
     "moduleResolution": "bundler",
     "composite": true,

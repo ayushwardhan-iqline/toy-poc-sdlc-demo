@@ -1,13 +1,17 @@
 /// <reference types='vitest' />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import tailwindcss from 'tailwindcss';
-import autoprefixer from 'autoprefixer';
+import tailwindcss from '@tailwindcss/vite';
 import { join } from 'path';
 
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../node_modules/.vite/apps',
+  resolve: {
+    alias: {
+      '@': join(import.meta.dirname, 'src'),
+    },
+  },
   server: {
     port: 4200,
     host: 'localhost',
@@ -16,15 +20,7 @@ export default defineConfig(() => ({
     port: 4200,
     host: 'localhost',
   },
-  css: {
-    postcss: {
-      plugins: [
-        tailwindcss({ config: join(import.meta.dirname, 'tailwind.config.js') }),
-        autoprefixer(),
-      ],
-    },
-  },
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   build: {
     outDir: './dist',
     emptyOutDir: true,

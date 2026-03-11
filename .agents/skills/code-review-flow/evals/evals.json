@@ -1,0 +1,17 @@
+{
+  "skill_name": "code-review-flow",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review this PR diff for architectural alignment. We are adding a feature to register new vehicles to our fleet.\n\nFile: `libs/feature-fleet/use-cases/register-vehicle.ts`\n```typescript\nexport const registerVehicle = async (input) => {\n  const existing = await db.select().from(vehicles).where(eq(vehicles.vin, input.vin));\n  if (existing.length > 0) throw new Error('Vehicle exists');\n  return await db.insert(vehicles).values(input);\n}\n```",
+      "expected_output": "The skill should flag a Major Violation because ORM/SQL logic (`db.select`, `db.insert`) is being used directly inside the Use Case layer, and should advise creating a Data Access repository function to abstract the query.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Check if this new code aligns with our architecture. We created `apps/api-monolith/controllers/BillingController.ts` which has a class `BillingController` with methods `processInvoice`, `refundInvoice`, and uses `this.db` to make queries over HTTP req/res objects directly.",
+      "expected_output": "The skill should flag multiple Major Violations: grouping by technical layer instead of Vertical Slice, using a massive OOP class with multiple intents rather than standalone procedural file functions, and mixing HTTP logic with DB queries.",
+      "files": []
+    }
+  ]
+}

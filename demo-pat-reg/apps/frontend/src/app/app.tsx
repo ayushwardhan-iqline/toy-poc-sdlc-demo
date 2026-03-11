@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Patient, Visit, insertPatientSchema, insertVisitSchema } from '@demo-pat-reg/shared';
+import { Patient, Visit } from '@demo-pat-reg/shared';
 import '../styles.css';
+
+import { BrowserRouter } from 'react-router-dom';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { GlobalSidebar } from '@/components/blocks/global-sidebar';
+import { GlobalHeader } from '@/components/blocks/global-header';
+import { CommandPalette } from '@/components/blocks/command-palette';
 
 const App: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -24,8 +31,9 @@ const App: React.FC = () => {
         
         setPatients(patientsData);
         setVisits(visitsData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+      } catch {
+        setPatients([]);
+        setVisits([]);
       } finally {
         setLoading(false);
       }
@@ -35,62 +43,66 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold text-gray-900">Patient Registration System</h1>
-        </div>
-      </header>
-      
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {loading ? (
-          <div className="text-center">Loading...</div>
-        ) : (
-          <div className="space-y-6">
-            <div className="bg-white shadow sm:rounded-lg p-6">
-              <h2 className="text-xl font-semibold mb-4">Patients</h2>
-              <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                {patients.map((patient) => (
-                  <div key={patient.id} className="border rounded-lg p-4">
-                    <div className="font-medium">{patient.salutation} {patient.name}</div>
-                    <div className="text-sm text-gray-500">{patient.gender}</div>
-                    <div className="text-sm text-gray-500">{patient.phoneNumber}</div>
-                    <div className="text-sm text-gray-500 mt-1">{patient.address}</div>
-                    <div className="text-xs text-gray-400 mt-2">
-                      Created: {new Date(patient.createdAt).toLocaleString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white shadow sm:rounded-lg p-6">
-              <h2 className="text-xl font-semibold mb-4">Visits</h2>
-              <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                {visits.map((visit) => {
-                  const patient = patients.find(p => p.id === visit.patientId);
-                  return (
-                    <div key={visit.id} className="border rounded-lg p-4">
-                      <div className="font-medium">Visit # {visit.visitNumber}</div>
-                      <div className="text-sm text-gray-500">{visit.type}</div>
-                      <div className="text-sm text-gray-500">{visit.status}</div>
-                      {patient && (
-                        <div className="text-sm text-gray-500 mt-1">
-                          Patient: {patient.salutation} {patient.name}
+    <BrowserRouter>
+      <SidebarProvider>
+        <GlobalSidebar />
+        <SidebarInset>
+          <GlobalHeader onCommandPaletteOpen={() => setCommandPaletteOpen(true)} />
+          <CommandPalette
+            open={commandPaletteOpen}
+            onOpenChange={setCommandPaletteOpen}
+          />
+          <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+            {loading ? (
+              <div className="flex h-full items-center justify-center">Loading...</div>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-card text-card-foreground shadow sm:rounded-lg p-6 border border-border">
+                  <h2 className="text-xl font-semibold mb-4">Patients</h2>
+                  <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                    {patients.map((patient) => (
+                      <div key={patient.id} className="border border-border rounded-lg p-4 bg-background">
+                        <div className="font-medium">{patient.salutation} {patient.name}</div>
+                        <div className="text-sm text-muted-foreground">{patient.gender}</div>
+                        <div className="text-sm text-muted-foreground">{patient.phoneNumber}</div>
+                        <div className="text-sm text-muted-foreground mt-1">{patient.address}</div>
+                        <div className="text-xs text-muted-foreground mt-2">
+                          Created: {new Date(patient.createdAt).toLocaleString()}
                         </div>
-                      )}
-                      <div className="text-xs text-gray-400 mt-2">
-                        Created: {new Date(visit.createdAt).toLocaleString()}
                       </div>
-                    </div>
-                  );
-                })}
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-card text-card-foreground shadow sm:rounded-lg p-6 border border-border">
+                  <h2 className="text-xl font-semibold mb-4">Visits</h2>
+                  <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                    {visits.map((visit) => {
+                      const patient = patients.find(p => p.id === visit.patientId);
+                      return (
+                        <div key={visit.id} className="border border-border rounded-lg p-4 bg-background">
+                          <div className="font-medium">Visit # {visit.visitNumber}</div>
+                          <div className="text-sm text-muted-foreground">{visit.type}</div>
+                          <div className="text-sm text-muted-foreground">{visit.status}</div>
+                          {patient && (
+                            <div className="text-sm text-muted-foreground mt-1">
+                              Patient: {patient.salutation} {patient.name}
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground mt-2">
+                            Created: {new Date(visit.createdAt).toLocaleString()}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
-        )}
-      </main>
-    </div>
+        </SidebarInset>
+      </SidebarProvider>
+    </BrowserRouter>
   );
 };
 

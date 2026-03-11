@@ -1,0 +1,19 @@
+{
+  "userStories": [
+    {
+      "id": "IQ-001",
+      "title": "Example Story",
+      "status": "Backlog",
+      "linkedTasks": [
+        "ET-001"
+      ]
+    }
+  ],
+  "engineeringTasks": [
+    {
+      "id": "ET-001",
+      "title": "Example Task",
+      "status": "Todo"
+    }
+  ]
+}

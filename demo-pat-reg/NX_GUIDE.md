@@ -216,6 +216,26 @@ bun nx lint frontend
 
 ## ⚡ Useful Nx Commands
 
+### 🕵️‍♂️ Exploring Your Workspace
+
+Nx provides powerful CLI commands to understand how your projects are configured and what commands are available without needing to dig into multiple `package.json` files:
+
+```bash
+# See all available targets (commands) and configurations for a specific project
+bun nx show project <project-name>
+# Example: bun nx show project backend
+
+# See a list of all projects in the workspace
+bun nx show projects
+
+# View the entire workspace dependency graph in your browser
+bun nx graph
+```
+
+Using `nx show project <name>` is invaluable when you want to know what tasks an app or lib supports (e.g. `build`, `lint`, `test`, `serve`, `typecheck`) and exactly how they are configured behind the scenes.
+
+### General Commands
+
 | Command | What it does |
 |---|---|
 | `bun nx graph` | Visual dependency graph |
@@ -233,3 +253,6 @@ bun nx lint frontend
 - **`affected` commands** only run targets for projects impacted by your git changes — great for CI.
 - **Each app has its own `package.json`** with an `nx.targets` section. This is where build/serve/test configurations live (instead of `project.json` files).
 - **The shared library resolution** works via `customConditions` in `tsconfig.base.json` + the `exports` field in `libs/package.json`. You don't need TS `paths` — Nx handles it.
+- **Frontend Design System**: The `frontend` app uses **Tailwind CSS v4** (via the `@tailwindcss/vite` plugin) and **shadcn/ui**.
+- **Path Aliases**: For the `frontend` app, we use `@/*` to map to `src/*`. This is configured in `apps/frontend/tsconfig.json` and `apps/frontend/vite.config.mts` to support shadcn's component structure.
+- **NX Cloud**: Nx Cloud is **disabled by default** in this workspace (via `NX_NO_CLOUD=true` in `.env` and by removing `nxCloudId` from `nx.json`). This avoids 401 Unauthorized errors during development.
