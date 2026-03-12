@@ -1,13 +1,14 @@
+/* eslint-disable security/detect-non-literal-fs-filename */
 import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const uvxCommand = process.platform === 'win32' ? 'uvx.exe' : 'uvx';
 const uvCommand = process.platform === 'win32' ? 'uv.exe' : 'uv';
-const isAffectedMode = process.argv.includes('--affected');
 const cwd = resolve(process.cwd());
 
-function run(command, args, options = {}) {
+function run(command, args, options = {}, cwd) {
   return spawnSync(command, args, {
     cwd,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -16,7 +17,7 @@ function run(command, args, options = {}) {
   });
 }
 
-function runSemgrep(paths) {
+function runSemgrep(paths, cwd) {
   const semgrepArgs = ['semgrep', 'scan', '--config', 'auto', '--error', ...paths];
   const semgrepEnv = {
     ...process.env,
@@ -39,34 +40,42 @@ function runSemgrep(paths) {
   process.exit(1);
 }
 
-if (!isAffectedMode) {
-  runSemgrep(['.']);
+export function main() {
+  const isAffectedMode = process.argv.includes('--affected');
+
+  if (!isAffectedMode) {
+    runSemgrep(['.'], cwd);
+  }
+
+  const base = process.env.NX_BASE;
+  const head = process.env.NX_HEAD;
+
+  if (!base || !head) {
+    console.error('NX_BASE and NX_HEAD must be set for affected semgrep scans.');
+    process.exit(1);
+  }
+
+  const diffResult = run('git', ['diff', '--name-only', '--diff-filter=ACMR', base, head], {}, cwd);
+
+  if (diffResult.status !== 0) {
+    console.error(diffResult.stderr || 'Failed to compute changed files for semgrep.');
+    process.exit(1);
+  }
+
+  const changedFiles = diffResult.stdout
+    .split('\n')
+    .map((file) => file.trim())
+    .filter(Boolean)
+    .filter((file) => existsSync(resolve(cwd, file)));
+
+  if (changedFiles.length === 0) {
+    console.log('Skipping semgrep: no affected files to scan.');
+    process.exit(0);
+  }
+
+  runSemgrep(changedFiles, cwd);
 }
 
-const base = process.env.NX_BASE;
-const head = process.env.NX_HEAD;
-
-if (!base || !head) {
-  console.error('NX_BASE and NX_HEAD must be set for affected semgrep scans.');
-  process.exit(1);
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main();
 }
-
-const diffResult = run('git', ['diff', '--name-only', '--diff-filter=ACMR', base, head]);
-
-if (diffResult.status !== 0) {
-  console.error(diffResult.stderr || 'Failed to compute changed files for semgrep.');
-  process.exit(1);
-}
-
-const changedFiles = diffResult.stdout
-  .split('\n')
-  .map((file) => file.trim())
-  .filter(Boolean)
-  .filter((file) => existsSync(resolve(cwd, file)));
-
-if (changedFiles.length === 0) {
-  console.log('Skipping semgrep: no affected files to scan.');
-  process.exit(0);
-}
-
-runSemgrep(changedFiles);

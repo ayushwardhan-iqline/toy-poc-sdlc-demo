@@ -130,61 +130,67 @@ function collectNxGraph() {
   return existsSync(nxDepGraphPath);
 }
 
-try {
-  ensureGitAvailable();
-  const range = resolveRange();
-  const excludePatterns = [
-    ':(exclude)package-lock.json',
-    ':(exclude)yarn.lock',
-    ':(exclude)pnpm-lock.yaml',
-    ':(exclude)bun.lockb',
-    ':(exclude)*.webp',
-    ':(exclude)*.png',
-    ':(exclude)*.jpg',
-    ':(exclude)*.jpeg',
-    ':(exclude)*.svg',
-    ':(exclude)*.ico',
-  ];
+export function main() {
+  try {
+    ensureGitAvailable();
+    const range = resolveRange();
+    const excludePatterns = [
+      ':(exclude)package-lock.json',
+      ':(exclude)yarn.lock',
+      ':(exclude)pnpm-lock.yaml',
+      ':(exclude)bun.lockb',
+      ':(exclude)*.webp',
+      ':(exclude)*.png',
+      ':(exclude)*.jpg',
+      ':(exclude)*.jpeg',
+      ':(exclude)*.svg',
+      ':(exclude)*.ico',
+    ];
 
-  const diffOutput = runOrThrow(
-    'git',
-    ['diff', '--diff-filter=ACMR', `${range.base}`, `${range.head}`, '--', '.', ...excludePatterns],
-    'Failed to collect PR diff.'
-  );
-  const changedFilesOutput = runOrThrow(
-    'git',
-    ['diff', '--name-only', '--diff-filter=ACMR', `${range.base}`, `${range.head}`, '--', '.', ...excludePatterns],
-    'Failed to collect changed files list.'
-  );
+    const diffOutput = runOrThrow(
+      'git',
+      ['diff', '--diff-filter=ACMR', `${range.base}`, `${range.head}`, '--', '.', ...excludePatterns],
+      'Failed to collect PR diff.'
+    );
+    const changedFilesOutput = runOrThrow(
+      'git',
+      ['diff', '--name-only', '--diff-filter=ACMR', `${range.base}`, `${range.head}`, '--', '.', ...excludePatterns],
+      'Failed to collect changed files list.'
+    );
 
-  const changedFiles = changedFilesOutput
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .sort((a, b) => a.localeCompare(b));
+    const changedFiles = changedFilesOutput
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
 
-  writeFileSync(prDiffPath, diffOutput, 'utf8');
-  writeFileSync(changedFilesPath, `${changedFiles.join('\n')}${changedFiles.length ? '\n' : ''}`, 'utf8');
+    writeFileSync(prDiffPath, diffOutput, 'utf8');
+    writeFileSync(changedFilesPath, `${changedFiles.join('\n')}${changedFiles.length ? '\n' : ''}`, 'utf8');
 
-  const hasNxGraph = collectNxGraph();
+    const hasNxGraph = collectNxGraph();
 
-  const manifest = {
-    generatedAt: new Date().toISOString(),
-    mode,
-    range,
-    changedFileCount: changedFiles.length,
-    files: {
-      prDiff: relative(projectRoot, prDiffPath),
-      changedFiles: relative(projectRoot, changedFilesPath),
-      nxDepGraph: hasNxGraph ? relative(projectRoot, nxDepGraphPath) : null,
-    },
-  };
+    const manifest = {
+      generatedAt: new Date().toISOString(),
+      mode,
+      range,
+      changedFileCount: changedFiles.length,
+      files: {
+        prDiff: relative(projectRoot, prDiffPath),
+        changedFiles: relative(projectRoot, changedFilesPath),
+        nxDepGraph: hasNxGraph ? relative(projectRoot, nxDepGraphPath) : null,
+      },
+    };
 
-  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 
-  console.log(`AI context collected at ${relative(projectRoot, contextDir)} (${changedFiles.length} changed files).`);
-} catch (error) {
-  const message = error instanceof Error ? error.message : 'Unknown error while collecting AI context.';
-  console.error(message);
-  process.exit(1);
+    console.log(`AI context collected at ${relative(projectRoot, contextDir)} (${changedFiles.length} changed files).`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error while collecting AI context.';
+    console.error(message);
+    process.exit(1);
+  }
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main();
 }

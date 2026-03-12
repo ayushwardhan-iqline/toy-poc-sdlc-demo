@@ -17,19 +17,12 @@ const mode = modeArg.split('=')[1] === 'full' ? 'full' : 'affected';
 const model = process.env.OPENCODE_MODEL?.trim() || 'opencode/minimax-m2.5-free';
 const opencodeCommand = process.env.OPENCODE_BIN_PATH?.trim() || 'opencode';
 
-const architectureAgentPath = resolve(agentsDir, 'step7-architecture-review.md');
-const qualityAgentPath = resolve(agentsDir, 'step7-code-quality-review.md');
-const arbiterAgentPath = resolve(agentsDir, 'step7-arbiter-review.md');
-
-const architectureReportPath = resolve(reportsDir, 'architecture-review.md');
-const qualityReportPath = resolve(reportsDir, 'code-quality-review.md');
-const finalReportPath = resolve(reportsDir, 'final-review.md');
+const judgeAgentPath = resolve(agentsDir, 'step8.5-e2e-judge.md');
+const finalReportPath = resolve(reportsDir, 'e2e-judge-review.md');
 
 const prDiffPath = resolve(contextDir, 'pr.diff');
 const changedFilesPath = resolve(contextDir, 'changed_files.txt');
-const nxDepGraphPath = resolve(contextDir, 'nx-depgraph.json');
-const architectureGuidePath = resolve(repoRoot, 'docs', 'ARCHITECTURE_GUIDELINES.md');
-const ciFlowPath = resolve(repoRoot, 'docs', 'INTENDED_CI_FLOW.md');
+const manifestPath = resolve(contextDir, 'context-manifest.json');
 
 mkdirSync(reportsDir, { recursive: true });
 
@@ -60,8 +53,9 @@ export function stripAnsi(value) {
 }
 
 function run(command, args, options = {}) {
+  const cwd = options.cwd ?? projectRoot;
   return spawnSync(command, args, {
-    cwd: projectRoot,
+    cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 10 * 1024 * 1024,
@@ -75,38 +69,44 @@ function requiredFile(pathToCheck, label) {
   }
 }
 
-function listMarkdownFiles(dirPath) {
-  if (!existsSync(dirPath)) {
-    return [];
-  }
+function isTargetReportFile(entry, fullPath) {
+  if (!entry.isFile()) return false;
+  if (!fullPath.includes('playwright-report')) return false;
+  return entry.name === 'index.html' || entry.name.endsWith('.json');
+}
 
-  const output = [];
+function processDirectoryEntry(entry, currentDir, stack, reports) {
+  const fullPath = resolve(currentDir, entry.name);
+  if (entry.isDirectory()) {
+    if (entry.name !== 'node_modules' && entry.name !== '.git') {
+      stack.push(fullPath);
+    }
+    return;
+  }
+  if (isTargetReportFile(entry, fullPath)) {
+    reports.push(fullPath);
+  }
+}
+
+function findPlaywrightReports(dirPath) {
+  if (!existsSync(dirPath)) return [];
+  const reports = [];
   const stack = [dirPath];
 
   while (stack.length > 0) {
     const current = stack.pop();
-    if (!current) {
-      continue;
-    }
+    if (!current) continue;
 
     const entries = readdirSync(current, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = resolve(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(fullPath);
-        continue;
-      }
-
-      if (entry.isFile() && fullPath.toLowerCase().endsWith('.md')) {
-        output.push(fullPath);
-      }
+      processDirectoryEntry(entry, current, stack, reports);
     }
   }
 
-  return output.sort((a, b) => a.localeCompare(b));
+  return reports;
 }
 
-function getChangedFileAttachments(limit = 50) {
+function getChangedFileAttachments(limit = 10) {
   if (!existsSync(changedFilesPath)) {
     return [];
   }
@@ -150,8 +150,65 @@ function collectScriptContext() {
   }
 
   if (result.status !== 0) {
-    throw new Error('Failed to collect AI context for Step 7.');
+    throw new Error('Failed to collect AI context for Step 8.5 Judge.');
   }
+}
+
+function readRangeFromManifest() {
+  requiredFile(manifestPath, 'context manifest');
+
+  const raw = readFileSync(manifestPath, 'utf8');
+  const parsed = JSON.parse(raw);
+  const base = parsed?.range?.base;
+  const head = parsed?.range?.head;
+
+  if (typeof base !== 'string' || typeof head !== 'string' || !base.trim() || !head.trim()) {
+    throw new Error('Context manifest is missing a valid git range.');
+  }
+
+  return { base: base.trim(), head: head.trim() };
+}
+
+function getChangedTaskAndStoryDocs(range) {
+  const diffResult = run(
+    'git',
+    [
+      'diff',
+      '--name-only',
+      '--diff-filter=ACMR',
+      range.base,
+      range.head,
+      '--',
+      'engineering-tasks',
+      'user-stories',
+    ],
+    { cwd: repoRoot }
+  );
+
+  if (diffResult.error) {
+    throw new Error(`Failed to execute git diff for changed task/story docs: ${diffResult.error.message}`);
+  }
+
+  if (diffResult.status !== 0) {
+    throw new Error(diffResult.stderr?.trim() || 'Failed to collect changed task/story docs.');
+  }
+
+  const changedPaths = (diffResult.stdout || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => line.endsWith('.md'))
+    .filter((line) => line.startsWith('engineering-tasks/') || line.startsWith('user-stories/'));
+
+  const docs = [];
+  for (const relPath of changedPaths) {
+    const absolutePath = resolve(repoRoot, relPath);
+    if (existsSync(absolutePath)) {
+      docs.push(absolutePath);
+    }
+  }
+
+  return docs.sort((a, b) => a.localeCompare(b));
 }
 
 export function runAgent({ title, agentName, outputPath, attachments, message }) {
@@ -187,7 +244,7 @@ export function evaluateGate(reportText) {
   if (!decisionMatch) {
     return {
       ok: false,
-      reason: 'Arbiter report missing CI_DECISION: PASS|FAIL contract.',
+      reason: 'E2E Judge report missing CI_DECISION: PASS|FAIL contract.',
     };
   }
 
@@ -195,18 +252,18 @@ export function evaluateGate(reportText) {
   if (decision === 'FAIL') {
     return {
       ok: false,
-      reason: 'Arbiter reported CI_DECISION: FAIL.',
+      reason: 'E2E Judge reported CI_DECISION: FAIL. (Tests do not cover tasks / Acceptance criteria not met)',
     };
   }
 
   if (hasBlockingSeverityLabel(reportText)) {
     return {
       ok: false,
-      reason: 'Arbiter report includes blocker severity labels (CRITICAL/BLOCKER).',
+      reason: 'E2E Judge report includes blocker severity labels (CRITICAL/BLOCKER).',
     };
   }
 
-  return { ok: true, reason: 'Arbiter review passed.' };
+  return { ok: true, reason: 'E2E Judge review passed.' };
 }
 
 export function hasBlockingSeverityLabel(reportText) {
@@ -237,65 +294,41 @@ export function hasBlockingSeverityLabel(reportText) {
   return false;
 }
 
-function pushIfExists(items, candidatePath) {
-  if (existsSync(candidatePath)) {
-    items.push(candidatePath);
-  }
-}
-
 export function main() {
   try {
     if (!process.env.OPENCODE_API_KEY?.trim()) {
-      throw new Error('OPENCODE_API_KEY is required for Step 7 AI review.');
+      throw new Error('OPENCODE_API_KEY is required for Step 8.5 E2E Judge AI review.');
     }
 
     collectScriptContext();
-    requiredFile(architectureAgentPath, 'architecture agent definition');
-    requiredFile(qualityAgentPath, 'code quality agent definition');
-    requiredFile(arbiterAgentPath, 'arbiter agent definition');
-
+    requiredFile(judgeAgentPath, 'Judge agent definition');
     requiredFile(prDiffPath, 'PR diff context');
     requiredFile(changedFilesPath, 'changed files context');
 
+    const range = readRangeFromManifest();
     const changedFileAttachments = getChangedFileAttachments();
+    const reportFiles = findPlaywrightReports(resolve(projectRoot));
+    const changedTaskAndStoryDocs = getChangedTaskAndStoryDocs(range);
 
-    const architectureAttachments = [prDiffPath, changedFilesPath, architectureGuidePath, ciFlowPath, ...changedFileAttachments];
-    pushIfExists(architectureAttachments, nxDepGraphPath);
+    if (reportFiles.length === 0) {
+      throw new Error('No Playwright report files found for Step 8.5 judge. Run Step 8 first.');
+    }
 
-    const qualityAttachments = [prDiffPath, changedFilesPath, ciFlowPath, ...changedFileAttachments];
-    pushIfExists(qualityAttachments, resolve(contextDir, 'eslint-results.json'));
-    pushIfExists(qualityAttachments, resolve(contextDir, 'semgrep-results.json'));
-
-    runAgent({
-      title: 'Architecture Review',
-      agentName: 'step7-architecture-review',
-      outputPath: architectureReportPath,
-      attachments: architectureAttachments,
-      message:
-        'Generate the Step 7 architecture review report using the attached context. Follow the required report format exactly.',
-    });
+    const judgeAttachments = [
+      prDiffPath, 
+      changedFilesPath, 
+      ...changedTaskAndStoryDocs,
+      ...changedFileAttachments,
+      ...reportFiles,
+    ];
 
     runAgent({
-      title: 'Code Quality Review',
-      agentName: 'step7-code-quality-review',
-      outputPath: qualityReportPath,
-      attachments: qualityAttachments,
-      message:
-        'Generate the Step 7 code quality review report using the attached context. Follow the required report format exactly.',
-    });
-
-    const taskDocs = listMarkdownFiles(resolve(repoRoot, 'engineering-tasks'));
-    const storyDocs = listMarkdownFiles(resolve(repoRoot, 'user-stories'));
-
-    const arbiterAttachments = [architectureReportPath, qualityReportPath, prDiffPath, changedFilesPath, ...taskDocs, ...storyDocs];
-
-    runAgent({
-      title: 'Final Review',
-      agentName: 'step7-arbiter-review',
+      title: 'E2E Test Judge',
+      agentName: 'step8.5-e2e-judge',
       outputPath: finalReportPath,
-      attachments: arbiterAttachments,
+      attachments: judgeAttachments,
       message:
-        'Synthesize the attached architecture and code quality reports, then produce the final arbiter report with the required CI_DECISION line.',
+        'Review the provided PR diff, Engineering Tasks, and Playwright E2E reports. Generate your judgement on testing adequacy and conclude with the CI_DECISION as strictly requested.',
     });
 
     const finalReport = readFileSync(finalReportPath, 'utf8');
@@ -306,9 +339,9 @@ export function main() {
       process.exit(1);
     }
 
-    console.log('Step 7 AI review completed successfully.');
+    console.log('Step 8.5 E2E Judge review completed successfully.');
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error in Step 7 AI review.';
+    const message = error instanceof Error ? error.message : 'Unknown error in Step 8.5 AI Judge.';
     console.error(message);
     process.exit(1);
   }
