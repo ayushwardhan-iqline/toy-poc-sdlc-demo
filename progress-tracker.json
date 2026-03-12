@@ -7,12 +7,43 @@
       "linkedTasks": [
         "ET-001"
       ]
+    },
+    {
+      "id": "IQ-002",
+      "title": "Display recent patient visits on dashboard",
+      "status": "Backlog",
+      "linkedTasks": [
+        "ET-002",
+        "ET-003",
+        "ET-004",
+        "ET-005"
+      ]
     }
   ],
   "engineeringTasks": [
     {
       "id": "ET-001",
       "title": "Example Task",
+      "status": "Todo"
+    },
+    {
+      "id": "ET-002",
+      "title": "Create Shared Contracts for Visit Queries",
+      "status": "Todo"
+    },
+    {
+      "id": "ET-003",
+      "title": "Implement Backend Data Access & Use Case for Listing Visits",
+      "status": "Todo"
+    },
+    {
+      "id": "ET-004",
+      "title": "Implement Backend HTTP Handler for Visits",
+      "status": "Todo"
+    },
+    {
+      "id": "ET-005",
+      "title": "Develop Frontend Visits Data Table Component",
       "status": "Todo"
     }
   ]
