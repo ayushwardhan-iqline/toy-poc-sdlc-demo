@@ -13,7 +13,7 @@ jobs:
       NX_NO_CLOUD: 'true'
       NX_BASE: ${{ github.event.pull_request.base.sha }}
       NX_HEAD: ${{ github.event.pull_request.head.sha }}
-      OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL || 'opencode/minimax-m2.5-free' }}
+      OPENCODE_MODEL: ${{ secrets.OPENCODE_MODEL || vars.OPENCODE_MODEL || 'opencode/minimax-m2.5-free' }}
 
     steps:
       - uses: actions/checkout@v4
