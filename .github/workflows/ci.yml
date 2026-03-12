@@ -104,7 +104,7 @@ jobs:
           fi
 
       - name: AI E2E Judge (Step 8.5)
-        if: success() && steps.detect_playwright.outputs.has_reports == 'true'
+        if: ${{ success() && steps.detect_playwright.outputs.has_reports == 'true' }}
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         run: |
@@ -112,5 +112,6 @@ jobs:
           bun run ci:affected:ai:judge-e2e
 
       - name: Skip AI E2E Judge (No Playwright reports)
-        if: success() && steps.detect_playwright.outputs.has_reports != 'true'
-        run: echo "Skipping Step 8.5: no Playwright report files were produced by Step 8."
+        if: ${{ success() && steps.detect_playwright.outputs.has_reports != 'true' }}
+        run: |
+          echo "Skipping Step 8.5: no Playwright report files were produced by Step 8."
