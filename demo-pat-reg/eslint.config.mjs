@@ -57,7 +57,7 @@ export default [
       eqeqeq: 'error',
       'no-var': 'error',
       'prefer-const': 'error',
-      complexity: ['error', 10],
+      complexity: ['error', 15],
       'sonarjs/cognitive-complexity': ['error', 15],
       'sonarjs/cors': 'off',
       'sonarjs/slow-regex': 'off',

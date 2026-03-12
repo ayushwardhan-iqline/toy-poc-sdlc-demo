@@ -44,6 +44,12 @@ Thumbs.db
 
 test-output
 
+# Step 7 AI review artifacts
+reports/ai-context/
+reports/architecture-review.md
+reports/code-quality-review.md
+reports/final-review.md
+
 .env
 .secrets
 

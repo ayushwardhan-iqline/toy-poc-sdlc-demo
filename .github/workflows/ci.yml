@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    env:
+      NX_NO_CLOUD: 'true'
+      NX_BASE: ${{ github.event.pull_request.base.sha }}
+      NX_HEAD: ${{ github.event.pull_request.head.sha }}
+      OPENCODE_MODEL: ${{ vars.OPENCODE_MODEL || 'opencode/minimax-m2.5-free' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: |
+          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
+          bun install --frozen-lockfile
+
+      - name: Install OpenCode CLI
+        run: npm install --global opencode-ai@1.2.24
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Ensure PR branch includes latest base branch
+        if: github.event_name == 'pull_request'
+        env:
+          CI_BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
+          bun run ci:check-base-sync
+
+      - name: Static analysis
+        run: |
+          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
+          bun run ci:affected:static-analysis
+
+      - name: Typecheck
+        run: |
+          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
+          bun run ci:affected:typecheck
+
+      - name: Unit tests
+        run: |
+          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
+          bun run ci:affected:test:unit
+
+      - name: Coverage gate
+        run: |
+          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
+          bun run ci:affected:test:coverage
+
+      - name: Integration tests
+        run: |
+          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
+          bun run ci:affected:test:integration
+
+      - name: AI Code Review (Step 7)
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
+          bun run ci:affected:ai:review

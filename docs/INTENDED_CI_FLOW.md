@@ -33,9 +33,11 @@ Coverage gate (Jest)
    ↓
 Integration tests (Jest)
    ↓
-AI code review agent
+AI code review (architecture + quality + arbiter via OpenCode run)
    ↓
 E2E tests (affected only)
+   ↓
+AI Judging output of E2E tests
 ```
 
 The order is chosen so that **fast deterministic checks fail first**, preventing expensive tests from running unnecessarily.
@@ -247,17 +249,57 @@ tests/
 
 ---
 
-# Step 7 — AI Code Review
+# Step 7 — AI Code Review (OpenCode Headless)
 
-An automated code review agent (e.g. headless LLM tooling) analyzes:
+Step 7 is implemented as a **3-agent headless review stage** using `opencode run`:
 
-* architecture consistency
-* anti-patterns
-* "vibe-coded" logic
-* forced implementations
-* violations of established project structure
+* Architecture Review agent
+* Code Quality Review agent
+* Arbiter agent
 
-This step **comments on PRs but does not necessarily block CI**, depending on configuration.
+Important implementation notes:
+
+* We do **not** use `opencode --file workflow.yaml --non-interactive` orchestration.
+* OpenCode orchestration is handled by repository scripts for deterministic CI behavior.
+* Step 7 runs dedicated OpenCode agents from:
+  * `demo-pat-reg/.opencode/agents/step7-architecture-review.md`
+  * `demo-pat-reg/.opencode/agents/step7-code-quality-review.md`
+  * `demo-pat-reg/.opencode/agents/step7-arbiter-review.md`
+* Architecture agent loads `code-review-flow` skill; code-quality agent loads `code-review-expert` skill.
+* Model selection is environment-driven via `OPENCODE_MODEL` (passed to `--model`).
+
+Context is collected into:
+
+```
+demo-pat-reg/reports/ai-context/
+```
+
+Primary files:
+
+* `pr.diff`
+* `changed_files.txt`
+* `nx-depgraph.json` (best effort)
+
+Outputs:
+
+```
+demo-pat-reg/reports/architecture-review.md
+demo-pat-reg/reports/code-quality-review.md
+demo-pat-reg/reports/final-review.md
+```
+
+Commands:
+
+```
+bun run ci:affected:ai:review
+bun run ci:full:ai:review
+```
+
+CI gate behavior:
+
+* Arbiter report must contain `CI_DECISION: PASS|FAIL`
+* CI fails when arbiter emits `CI_DECISION: FAIL`
+* CI also fails when blocker severities (`CRITICAL` / `BLOCKER`) are detected in the arbiter report
 
 ---
 
@@ -285,6 +327,10 @@ Benefits:
 * drastically reduces CI runtime
 
 ---
+
+# Step 8.5 (or 9) - Judging output of End-to-End Tests
+
+Automated code-review agent judges the output of end-to-end tests and how much of the user-stories are met by this
 
 # Nx Integration
 

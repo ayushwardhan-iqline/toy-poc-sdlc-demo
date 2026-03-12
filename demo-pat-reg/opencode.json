@@ -1,0 +1,19 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "{env:OPENCODE_MODEL}",
+  "provider": {
+    "opencode": {
+      "options": {
+        "apiKey": "{env:OPENCODE_API_KEY}"
+      }
+    }
+  },
+  "permission": {
+    "webfetch": "allow",
+    "skill": {
+      "code-review-flow": "allow",
+      "code-review-expert": "allow",
+      "*": "deny"
+    }
+  }
+}
