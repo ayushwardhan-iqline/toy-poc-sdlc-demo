@@ -11,7 +11,7 @@
     {
       "id": "IQ-002",
       "title": "Display recent patient visits on dashboard",
-      "status": "Backlog",
+      "status": "In Progress",
       "linkedTasks": [
         "ET-002",
         "ET-003",
@@ -29,7 +29,7 @@
     {
       "id": "ET-002",
       "title": "Create Shared Contracts for Visit Queries",
-      "status": "Todo"
+      "status": "Done"
     },
     {
       "id": "ET-003",
