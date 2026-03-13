@@ -1,8 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import { patients, visits, insertPatientSchema, insertVisitSchema } from '@demo-pat-reg/shared';
+import { patients, visits, insertPatientSchema, insertVisitSchema, db } from '@demo-pat-reg/shared';
 
 const host = process.env.HOST ?? 'localhost';
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -12,18 +10,6 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Database connection
-const dbUser = process.env.DB_USER || 'postgres';
-const dbPassword = process.env.DB_PASSWORD || 'password';
-const dbHost = process.env.DB_HOST || 'localhost';
-const dbPort = process.env.DB_PORT || '5432';
-const dbName = process.env.DB_NAME || 'demo_pat_reg';
-
-const queryClient = postgres(
-  `postgres://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`,
-);
-const db = drizzle(queryClient);
 
 app.get('/', (_req, res) => {
   res.json({ message: 'Hello API' });

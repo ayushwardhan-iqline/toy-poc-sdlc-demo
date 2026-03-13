@@ -16,7 +16,8 @@
         "ET-002",
         "ET-003",
         "ET-004",
-        "ET-005"
+        "ET-005",
+        "ET-006"
       ]
     }
   ],
@@ -45,6 +46,11 @@
       "id": "ET-005",
       "title": "Develop Frontend Visits Data Table Component",
       "status": "Todo"
+    },
+    {
+      "id": "ET-006",
+      "title": "Troubleshoot and Finalize CI Pipeline",
+      "status": "In Progress"
     }
   ]
 }
