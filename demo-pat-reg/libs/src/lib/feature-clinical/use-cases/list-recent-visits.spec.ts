@@ -1,8 +1,15 @@
 import { describe, it, expect, vi, afterEach, type Mock } from 'vitest';
 import { listRecentVisits } from './list-recent-visits.js';
+import { type VisitRepoDb } from '../data-access/visit.repo.js';
 import * as VisitRepo from '../data-access/visit.repo.js';
 
+// The use-case is still tested against a mocked repo — the actual db value
+// passed through is irrelevant here since listVisits itself is mocked.
 vi.mock('../data-access/visit.repo.js');
+
+// A typed null stand-in for the db parameter. Since VisitRepo.listVisits is
+// fully mocked at module level, the db value is never actually used.
+const mockDb = null as unknown as VisitRepoDb;
 
 describe('listRecentVisits Use Case', () => {
   afterEach(() => {
@@ -42,10 +49,10 @@ describe('listRecentVisits Use Case', () => {
     (VisitRepo.listVisits as Mock).mockResolvedValue(mockRepoResult);
 
     // Act
-    const result = await listRecentVisits({ page: 2, pageSize: 10 });
+    const result = await listRecentVisits(mockDb, { page: 2, pageSize: 10 });
 
     // Assert
-    expect(VisitRepo.listVisits).toHaveBeenCalledWith({
+    expect(VisitRepo.listVisits).toHaveBeenCalledWith(mockDb, {
       search: undefined,
       limit: 10,
       offset: 10,
@@ -72,9 +79,9 @@ describe('listRecentVisits Use Case', () => {
   it('should apply defaults for page and pageSize', async () => {
     (VisitRepo.listVisits as Mock).mockResolvedValue({ records: [], total: 0 });
 
-    await listRecentVisits({ page: 1, pageSize: 10 });
+    await listRecentVisits(mockDb, { page: 1, pageSize: 10 });
 
-    expect(VisitRepo.listVisits).toHaveBeenCalledWith({
+    expect(VisitRepo.listVisits).toHaveBeenCalledWith(mockDb, {
       search: undefined,
       limit: 10,
       offset: 0,
@@ -84,9 +91,9 @@ describe('listRecentVisits Use Case', () => {
   it('should pass search term downwards', async () => {
     (VisitRepo.listVisits as Mock).mockResolvedValue({ records: [], total: 0 });
 
-    await listRecentVisits({ page: 1, pageSize: 10, search: 'Doe' });
+    await listRecentVisits(mockDb, { page: 1, pageSize: 10, search: 'Doe' });
 
-    expect(VisitRepo.listVisits).toHaveBeenCalledWith({
+    expect(VisitRepo.listVisits).toHaveBeenCalledWith(mockDb, {
       search: 'Doe',
       limit: 10,
       offset: 0,

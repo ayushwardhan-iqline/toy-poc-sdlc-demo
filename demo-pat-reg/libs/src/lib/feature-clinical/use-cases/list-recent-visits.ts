@@ -1,14 +1,16 @@
 import { ListVisitsRequest, ListVisitsResponse, VisitStatusSchema } from '../../contracts/clinical.contracts.js';
+import { type VisitRepoDb } from '../data-access/visit.repo.js';
 import * as VisitRepo from '../data-access/visit.repo.js';
 
 export const listRecentVisits = async (
+  db: VisitRepoDb,
   input: ListVisitsRequest
 ): Promise<ListVisitsResponse> => {
   const page = input.page || 1;
   const pageSize = input.pageSize || 10;
   const offset = (page - 1) * pageSize;
 
-  const result = await VisitRepo.listVisits({
+  const result = await VisitRepo.listVisits(db, {
     search: input.search,
     limit: pageSize,
     offset,

@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { handleListVisits } from '@demo-pat-reg/shared';
+import { handleListVisits, globalErrorHandler } from '@demo-pat-reg/shared';
 
 const host = process.env.HOST ?? 'localhost';
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -18,6 +18,10 @@ app.get('/', (_req, res) => {
 // Visits API
 app.get('/api/visits', handleListVisits);
 
+// Global error handler — must be registered LAST, after all routes
+app.use(globalErrorHandler);
+
 app.listen(port, host, () => {
-  console.log(`[ ready ] http://${host}:${port}`);
+  console.log(`[ ready ] http://${host}:${port}`); // eslint-disable-line no-console
 });
+

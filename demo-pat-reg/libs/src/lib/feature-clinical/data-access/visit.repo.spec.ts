@@ -1,16 +1,19 @@
 import { vi, describe, it, expect, beforeEach, type Mock } from 'vitest';
-import { listVisits } from './visit.repo.js';
-import { db } from '../../backend/db.js';
+import { listVisits, type VisitRepoDb } from './visit.repo.js';
 
-vi.mock('../../backend/db.js', () => ({
-  db: {
-    select: vi.fn(),
-  },
-}));
+/**
+ * Instead of module-mocking db.ts (which creates coupling to the import path),
+ * we construct a minimal mock db object directly and pass it as the first argument.
+ * This is the benefit of the DI refactor — tests are simpler and more explicit.
+ */
+const makeMockDb = () => ({
+  select: vi.fn(),
+});
 
 describe('visit.repo', () => {
   // We use any for the fluent chain mocks as Drizzle's types are extremely complex to mock exactly.
   /* eslint-disable @typescript-eslint/no-explicit-any */
+  let mockDb: ReturnType<typeof makeMockDb>;
   let mockSelectResult: any;
   let mockFromResult: any;
   let mockJoinResult: any;
@@ -21,6 +24,7 @@ describe('visit.repo', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDb = makeMockDb();
 
     mockOffsetResult = {
       then: vi.fn(),
@@ -50,7 +54,7 @@ describe('visit.repo', () => {
       from: vi.fn().mockReturnValue(mockFromResult),
     };
 
-    (db.select as Mock).mockReturnValue(mockSelectResult);
+    (mockDb.select as Mock).mockReturnValue(mockSelectResult);
   });
 
   it('should construct correct query for listVisits', async () => {
@@ -60,12 +64,12 @@ describe('visit.repo', () => {
     mockOffsetResult.then.mockImplementation((callback: any) => Promise.resolve(callback(mockRecords)));
     mockWhereResult.then.mockImplementation((callback: any) => Promise.resolve(callback(mockCount)));
 
-    const result = await listVisits({
+    const result = await listVisits(mockDb as unknown as VisitRepoDb, {
       limit: 10,
       offset: 0,
     });
 
-    expect(db.select).toHaveBeenCalledTimes(2);
+    expect(mockDb.select).toHaveBeenCalledTimes(2);
     expect(mockSelectResult.from).toHaveBeenCalled();
     expect(mockFromResult.innerJoin).toHaveBeenCalled();
     expect(mockJoinResult.where).toHaveBeenCalledWith(undefined);
@@ -79,7 +83,7 @@ describe('visit.repo', () => {
     mockOffsetResult.then.mockImplementation((callback: any) => Promise.resolve(callback([])));
     mockWhereResult.then.mockImplementation((callback: any) => Promise.resolve(callback([{ count: 0 }])));
 
-    await listVisits({
+    await listVisits(mockDb as unknown as VisitRepoDb, {
       search: 'test',
       limit: 10,
       offset: 0,

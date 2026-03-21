@@ -1,13 +1,23 @@
-import { db } from '../../backend/db.js';
 import { visits, patients } from '../../schemas/index.js';
 import { desc, eq, ilike, or, count } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/postgres-js';
+
+/**
+ * The minimal db interface required by this repository.
+ *
+ * Typed as the return of `drizzle()` — the concrete Postgres adapter at runtime,
+ * but any compatible adapter (SQLite, libSQL, IndexedDB shim) can be injected
+ * instead, enabling offline / local-first use-cases without touching this file.
+ */
+export type VisitRepoDb = ReturnType<typeof drizzle>;
 
 export const listVisits = async (
+  db: VisitRepoDb,
   searchOptions: {
     search?: string;
     limit: number;
     offset: number;
-  }
+  },
 ) => {
   const conditions = searchOptions.search ? [
     or(
