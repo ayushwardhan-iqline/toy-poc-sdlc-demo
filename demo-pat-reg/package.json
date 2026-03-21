@@ -48,6 +48,7 @@
     "test:scripts": "vitest run -c ./scripts/vitest.config.ts ./scripts"
   },
   "private": true,
+  "type": "module",
   "dependencies": {
     "axios": "^1.6.0",
     "cors": "^2.8.6",
@@ -66,7 +67,6 @@
     "@nx/esbuild": "22.5.4",
     "@nx/eslint": "22.5.4",
     "@nx/eslint-plugin": "22.5.4",
-    "@nx/jest": "22.5.4",
     "@nx/js": "22.5.4",
     "@nx/node": "22.5.4",
     "@nx/playwright": "22.5.4",
@@ -78,10 +78,8 @@
     "@swc-node/register": "~1.11.1",
     "@swc/core": "~1.15.5",
     "@swc/helpers": "~0.5.18",
-    "@swc/jest": "~0.2.38",
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.21",
-    "@types/jest": "^30.0.0",
     "@types/node": "20.19.9",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -95,16 +93,12 @@
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-security": "^3.0.1",
     "eslint-plugin-sonarjs": "^3.0.5",
-    "jest": "^30.0.2",
-    "jest-environment-node": "^30.0.2",
-    "jest-util": "^30.0.2",
     "jiti": "2.4.2",
     "jsdom": "~22.1.0",
     "nx": "22.5.4",
     "postcss": "8.5.1",
     "prettier": "~3.6.2",
     "tailwindcss": "3.4.17",
-    "ts-jest": "^29.4.0",
     "ts-node": "10.9.1",
     "tslib": "^2.3.0",
     "typescript": "~5.9.2",
@@ -114,6 +108,7 @@
   },
   "workspaces": [
     "apps/*",
+    "apps-e2e",
     "libs"
   ]
 }

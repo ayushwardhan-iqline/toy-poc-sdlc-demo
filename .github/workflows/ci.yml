@@ -9,6 +9,23 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: hims
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: demo-pat-reg
     env:
       NX_NO_CLOUD: 'true'
       NX_BASE: ${{ github.event.pull_request.base.sha }}
@@ -25,9 +42,7 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: |
-          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
-          bun install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Install OpenCode CLI
         run: npm install --global opencode-ai@1.2.24
@@ -39,46 +54,32 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           CI_BASE_REF: ${{ github.base_ref }}
-        run: |
-          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
-          bun run ci:check-base-sync
+        run: bun run ci:check-base-sync
 
       - name: Static analysis
-        run: |
-          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
-          bun run ci:affected:static-analysis
+        run: bun run ci:affected:static-analysis
 
       - name: Typecheck
-        run: |
-          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
-          bun run ci:affected:typecheck
+        run: bun run ci:affected:typecheck
 
       - name: Unit tests
-        run: |
-          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
-          bun run ci:affected:test:unit
+        run: bun run ci:affected:test:unit
 
       - name: Coverage gate
-        run: |
-          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
-          bun run ci:affected:test:coverage
+        run: bun run ci:affected:test:coverage
 
       - name: Integration tests
-        run: |
-          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
-          bun run ci:affected:test:integration
+        run: bun run ci:affected:test:integration
 
-      - name: AI Code Review (Step 7)
+
+
+      - name: Prepare Test Database
         env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-        run: |
-          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
-          bun run ci:affected:ai:review
+          DATABASE_URL: postgresql://user:password@localhost:5432/hims
+        run: bun run db:push
 
       - name: E2E Tests (Step 8)
-        run: |
-          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
-          bun run ci:affected:test:e2e
+        run: bun run ci:affected:test:e2e
 
       - name: Upload E2E Artifacts
         if: always()
@@ -92,26 +93,4 @@ jobs:
             demo-pat-reg/**/test-results/
           if-no-files-found: ignore
 
-      - name: Detect Playwright Reports
-        if: success()
-        id: detect_playwright
-        run: |
-          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
-          if find . -type f \( -path "*/playwright-report/index.html" -o -path "*/playwright-report/*.json" \) | grep -q .; then
-            echo "has_reports=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_reports=false" >> "$GITHUB_OUTPUT"
-          fi
 
-      - name: AI E2E Judge (Step 8.5)
-        if: ${{ success() && steps.detect_playwright.outputs.has_reports == 'true' }}
-        env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-        run: |
-          if [ -f demo-pat-reg/package.json ]; then cd demo-pat-reg; fi
-          bun run ci:affected:ai:judge-e2e
-
-      - name: Skip AI E2E Judge (No Playwright reports)
-        if: ${{ success() && steps.detect_playwright.outputs.has_reports != 'true' }}
-        run: |
-          echo "Skipping Step 8.5: no Playwright report files were produced by Step 8."

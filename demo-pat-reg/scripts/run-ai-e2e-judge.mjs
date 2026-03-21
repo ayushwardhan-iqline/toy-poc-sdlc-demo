@@ -15,7 +15,6 @@ const modeArg = process.argv.find((arg) => arg.startsWith('--mode=')) ?? '';
 const mode = modeArg.split('=')[1] === 'full' ? 'full' : 'affected';
 
 const model = process.env.OPENCODE_MODEL?.trim() || 'opencode/minimax-m2.5-free';
-const opencodeCommand = process.env.OPENCODE_BIN_PATH?.trim() || 'opencode';
 
 const judgeAgentPath = resolve(agentsDir, 'step8.5-e2e-judge.md');
 const finalReportPath = resolve(reportsDir, 'e2e-judge-review.md');
@@ -52,9 +51,10 @@ export function stripAnsi(value) {
   return output;
 }
 
-function run(command, args, options = {}) {
+function runOpencode(args, options = {}) {
   const cwd = options.cwd ?? projectRoot;
-  return spawnSync(command, args, {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path
+  return spawnSync('opencode', args, {
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -62,6 +62,19 @@ function run(command, args, options = {}) {
     ...options,
   });
 }
+
+function runNode(args, options = {}) {
+  const cwd = options.cwd ?? projectRoot;
+  return spawnSync(process.execPath, args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 10 * 1024 * 1024,
+    ...options,
+  });
+}
+
+
 
 function requiredFile(pathToCheck, label) {
   if (!existsSync(pathToCheck)) {
@@ -141,7 +154,7 @@ function collectScriptContext() {
   const collectScriptPath = resolve(projectRoot, 'scripts', 'collect-ai-context.mjs');
   requiredFile(collectScriptPath, 'context collector script');
 
-  const result = run(process.execPath, [collectScriptPath, `--mode=${mode}`], {
+  const result = runNode([collectScriptPath, `--mode=${mode}`], {
     stdio: ['ignore', 'inherit', 'inherit'],
   });
 
@@ -154,61 +167,14 @@ function collectScriptContext() {
   }
 }
 
-function readRangeFromManifest() {
-  requiredFile(manifestPath, 'context manifest');
 
+
+function readLinkedTasksFromManifest() {
+  requiredFile(manifestPath, 'context manifest');
   const raw = readFileSync(manifestPath, 'utf8');
   const parsed = JSON.parse(raw);
-  const base = parsed?.range?.base;
-  const head = parsed?.range?.head;
-
-  if (typeof base !== 'string' || typeof head !== 'string' || !base.trim() || !head.trim()) {
-    throw new Error('Context manifest is missing a valid git range.');
-  }
-
-  return { base: base.trim(), head: head.trim() };
-}
-
-function getChangedTaskAndStoryDocs(range) {
-  const diffResult = run(
-    'git',
-    [
-      'diff',
-      '--name-only',
-      '--diff-filter=ACMR',
-      range.base,
-      range.head,
-      '--',
-      'engineering-tasks',
-      'user-stories',
-    ],
-    { cwd: repoRoot }
-  );
-
-  if (diffResult.error) {
-    throw new Error(`Failed to execute git diff for changed task/story docs: ${diffResult.error.message}`);
-  }
-
-  if (diffResult.status !== 0) {
-    throw new Error(diffResult.stderr?.trim() || 'Failed to collect changed task/story docs.');
-  }
-
-  const changedPaths = (diffResult.stdout || '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => line.endsWith('.md'))
-    .filter((line) => line.startsWith('engineering-tasks/') || line.startsWith('user-stories/'));
-
-  const docs = [];
-  for (const relPath of changedPaths) {
-    const absolutePath = resolve(repoRoot, relPath);
-    if (existsSync(absolutePath)) {
-      docs.push(absolutePath);
-    }
-  }
-
-  return docs.sort((a, b) => a.localeCompare(b));
+  const docs = parsed?.linkedTaskDocs || [];
+  return docs.map((p) => resolve(projectRoot, p));
 }
 
 export function runAgent({ title, agentName, outputPath, attachments, message }) {
@@ -222,7 +188,7 @@ export function runAgent({ title, agentName, outputPath, attachments, message })
 
   console.log(`Running ${title} with ${uniqueAttachments.length} attached files...`);
 
-  const result = run(opencodeCommand, args);
+  const result = runOpencode(args);
   if (result.error) {
     throw new Error(`${title} failed.\nFailed to execute opencode: ${result.error.message}`);
   }
@@ -305,10 +271,9 @@ export function main() {
     requiredFile(prDiffPath, 'PR diff context');
     requiredFile(changedFilesPath, 'changed files context');
 
-    const range = readRangeFromManifest();
+    const explicitTaskDocs = readLinkedTasksFromManifest();
     const changedFileAttachments = getChangedFileAttachments();
     const reportFiles = findPlaywrightReports(resolve(projectRoot));
-    const changedTaskAndStoryDocs = getChangedTaskAndStoryDocs(range);
 
     if (reportFiles.length === 0) {
       throw new Error('No Playwright report files found for Step 8.5 judge. Run Step 8 first.');
@@ -317,7 +282,7 @@ export function main() {
     const judgeAttachments = [
       prDiffPath, 
       changedFilesPath, 
-      ...changedTaskAndStoryDocs,
+      ...explicitTaskDocs,
       ...changedFileAttachments,
       ...reportFiles,
     ];

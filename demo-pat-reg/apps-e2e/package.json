@@ -4,7 +4,7 @@
   "private": true,
   "nx": {
     "implicitDependencies": [
-      "@demo-pat-reg/apps"
+      "@demo-pat-reg/frontend"
     ]
   }
 }

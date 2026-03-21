@@ -48,7 +48,7 @@ describe('run-semgrep.mjs', () => {
     expect(caughtError).toBeDefined();
     expect(caughtError.message).toContain('TEST_ABORT_EXIT_0');
     expect(spawnSync).toHaveBeenCalledWith(
-      expect.stringMatching(/uvx/),
+      'uvx',
       expect.arrayContaining(['semgrep', 'scan', '--config']),
       expect.any(Object)
     );

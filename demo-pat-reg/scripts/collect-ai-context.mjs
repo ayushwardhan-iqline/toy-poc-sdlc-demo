@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
+/* eslint-disable security/detect-non-literal-fs-filename */
+import { mkdirSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,8 +17,9 @@ const mode = modeArg.split('=')[1] === 'full' ? 'full' : 'affected';
 
 mkdirSync(contextDir, { recursive: true });
 
-function run(command, args, options = {}) {
-  return spawnSync(command, args, {
+function runGit(args, options = {}) {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path
+  return spawnSync('git', args, {
     cwd: projectRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -26,10 +28,20 @@ function run(command, args, options = {}) {
   });
 }
 
-function runOrThrow(command, args, errorMessage) {
-  const result = run(command, args);
+function runBunxNxGraph(outputPath) {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path
+  return spawnSync('bun', ['x', 'nx', 'graph', `--file=${outputPath}`], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 10 * 1024 * 1024,
+  });
+}
+
+function runGitOrThrow(args, errorMessage) {
+  const result = runGit(args);
   if (result.error) {
-    throw new Error(`Failed to execute ${command}: ${result.error.message}`);
+    throw new Error(`Failed to execute git: ${result.error.message}`);
   }
   if (result.status !== 0) {
     const stderr = result.stderr?.trim();
@@ -39,7 +51,7 @@ function runOrThrow(command, args, errorMessage) {
 }
 
 function hasRef(ref) {
-  const result = run('git', ['rev-parse', '--verify', ref]);
+  const result = runGit(['rev-parse', '--verify', ref]);
   if (result.error) {
     throw new Error(`Failed to execute git: ${result.error.message}`);
   }
@@ -47,7 +59,7 @@ function hasRef(ref) {
 }
 
 function ensureGitAvailable() {
-  const result = run('git', ['--version']);
+  const result = runGit(['--version']);
   if (result.error) {
     throw new Error(`Failed to execute git: ${result.error.message}`);
   }
@@ -71,9 +83,13 @@ function resolveRangeFromEnv() {
 }
 
 function resolveRangeFromPreferredBase(preferredBaseRef) {
+  if (/^[0-9a-f]{40}$/i.test(preferredBaseRef) && hasRef(preferredBaseRef)) {
+    return createRange(preferredBaseRef, 'HEAD', `base-sha(${preferredBaseRef})`);
+  }
+
   const remoteBaseRef = `origin/${preferredBaseRef}`;
   if (hasRef(remoteBaseRef)) {
-    const mergeBaseResult = run('git', ['merge-base', 'HEAD', remoteBaseRef]);
+    const mergeBaseResult = runGit(['merge-base', 'HEAD', remoteBaseRef]);
     if (mergeBaseResult.status === 0 && mergeBaseResult.stdout?.trim()) {
       return createRange(mergeBaseResult.stdout.trim(), 'HEAD', `merge-base(HEAD, ${remoteBaseRef})`);
     }
@@ -121,7 +137,7 @@ function resolveRange() {
 }
 
 function collectNxGraph() {
-  const nxResult = run('bunx', ['nx', 'graph', `--file=${nxDepGraphPath}`]);
+  const nxResult = runBunxNxGraph(nxDepGraphPath);
   if (nxResult.status !== 0) {
     const stderr = nxResult.stderr?.trim();
     console.warn(`Warning: nx graph generation failed. Continuing without graph. ${stderr || ''}`.trim());
@@ -130,9 +146,49 @@ function collectNxGraph() {
   return existsSync(nxDepGraphPath);
 }
 
+function parseLinkedTasks(text) {
+  if (!text) return [];
+  const regex = /(?:ET|IQ)-\d+/gi;
+  const matches = [...new Set(text.match(regex) || [])];
+  return matches.map((m) => m.toUpperCase());
+}
+
+function findTaskDocsByIds(taskIds) {
+  const docs = [];
+  const dirs = [resolve(projectRoot, '..', 'engineering-tasks'), resolve(projectRoot, '..', 'user-stories')];
+
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue;
+    const files = readdirSync(dir);
+    for (const file of files) {
+      if (file.endsWith('.md')) {
+        const hasMatch = taskIds.some((id) => file.toUpperCase().includes(id));
+        if (hasMatch) {
+          docs.push(resolve(dir, file));
+        }
+      }
+    }
+  }
+  return docs;
+}
+
 export function main() {
   try {
     ensureGitAvailable();
+
+    const prContextText = process.env.PR_CONTEXT?.trim() || '';
+    const taskIds = parseLinkedTasks(prContextText);
+    const linkedTaskDocs = findTaskDocsByIds(taskIds);
+
+    if (process.env.REQUIRE_PR_TASKS === 'true') {
+      if (taskIds.length === 0) {
+        throw new Error('No user-stories or engineering-tasks could be parsed from the PR context. Please mention a task like ET-001 or IQ-002.');
+      }
+      if (linkedTaskDocs.length === 0) {
+        throw new Error(`Tasks were mentioned (${taskIds.join(', ')}), but no matching markdown files could be found in engineering-tasks or user-stories.`);
+      }
+    }
+
     const range = resolveRange();
     const excludePatterns = [
       ':(exclude)package-lock.json',
@@ -147,13 +203,11 @@ export function main() {
       ':(exclude)*.ico',
     ];
 
-    const diffOutput = runOrThrow(
-      'git',
+    const diffOutput = runGitOrThrow(
       ['diff', '--diff-filter=ACMR', `${range.base}`, `${range.head}`, '--', '.', ...excludePatterns],
       'Failed to collect PR diff.'
     );
-    const changedFilesOutput = runOrThrow(
-      'git',
+    const changedFilesOutput = runGitOrThrow(
       ['diff', '--name-only', '--diff-filter=ACMR', `${range.base}`, `${range.head}`, '--', '.', ...excludePatterns],
       'Failed to collect changed files list.'
     );
@@ -174,6 +228,7 @@ export function main() {
       mode,
       range,
       changedFileCount: changedFiles.length,
+      linkedTaskDocs: linkedTaskDocs.map((p) => relative(projectRoot, p)),
       files: {
         prDiff: relative(projectRoot, prDiffPath),
         changedFiles: relative(projectRoot, changedFilesPath),

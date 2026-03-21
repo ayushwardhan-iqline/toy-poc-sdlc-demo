@@ -1,5 +1,21 @@
-import { describe, it, expect } from 'vitest';
-import { evaluateGate, hasBlockingSeverityLabel, stripAnsi } from '../run-ai-e2e-judge.mjs';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('node:fs', () => ({
+  existsSync: vi.fn(() => true),
+  mkdirSync: vi.fn(),
+  readFileSync: vi.fn(),
+  writeFileSync: vi.fn(),
+  readdirSync: vi.fn(() => []),
+  statSync: vi.fn(() => ({ isFile: () => true, size: 128 })),
+}));
+
+vi.mock('node:child_process', () => ({
+  spawnSync: vi.fn(),
+}));
+
+import { writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { evaluateGate, hasBlockingSeverityLabel, runAgent, stripAnsi } from '../run-ai-e2e-judge.mjs';
 
 describe('run-ai-e2e-judge.mjs', () => {
   describe('stripAnsi', () => {
@@ -34,6 +50,27 @@ describe('run-ai-e2e-judge.mjs', () => {
 
     it('passes on CI_DECISION: PASS', () => {
       expect(evaluateGate('Auto-pass because pure backend PR.\nCI_DECISION: PASS').ok).toBe(true);
+    });
+  });
+
+  describe('runAgent', () => {
+    it('invokes opencode with literal command and writes the report', () => {
+      spawnSync.mockReturnValue({ status: 0, stdout: 'CI_DECISION: PASS\n', stderr: '' });
+
+      runAgent({
+        title: 'E2E Test Judge',
+        agentName: 'step8.5-e2e-judge',
+        outputPath: 'report.md',
+        attachments: ['a.txt', 'a.txt'],
+        message: 'judge this',
+      });
+
+      expect(spawnSync).toHaveBeenCalledWith(
+        'opencode',
+        expect.arrayContaining(['run', '--agent', 'step8.5-e2e-judge', 'judge this']),
+        expect.any(Object)
+      );
+      expect(writeFileSync).toHaveBeenCalledWith('report.md', 'CI_DECISION: PASS\n', 'utf8');
     });
   });
 });

@@ -19,13 +19,23 @@ export default defineConfig({
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'bun nx run @demo-pat-reg/apps:preview',
-    url: 'http://localhost:4200',
-    reuseExistingServer: true,
-    cwd: workspaceRoot,
-  },
+  /* Run your local dev servers before starting the tests */
+  webServer: [
+    {
+      command: 'bun nx run @demo-pat-reg/backend:serve',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      cwd: workspaceRoot,
+      stdout: 'pipe',
+    },
+    {
+      command: 'bun nx run @demo-pat-reg/frontend:preview',
+      url: 'http://localhost:4200',
+      reuseExistingServer: !process.env.CI,
+      cwd: workspaceRoot,
+      stdout: 'pipe',
+    }
+  ],
   projects: [
     {
       name: 'chromium',

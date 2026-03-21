@@ -16,8 +16,7 @@
         "ET-002",
         "ET-003",
         "ET-004",
-        "ET-005",
-        "ET-006"
+        "ET-005"
       ]
     }
   ],
@@ -49,7 +48,8 @@
     },
     {
       "id": "ET-006",
-      "title": "Troubleshoot and Finalize CI Pipeline",
+      "title": "Establish Production-Grade CI/CD Pipeline",
+      "type": "Infrastructure Chore",
       "status": "In Progress"
     }
   ]

@@ -1,6 +1,5 @@
 # Engineering Task ET-004
 
-**Linked User Stories:** IQ-002
 **Status:** Todo
 
 ## Description

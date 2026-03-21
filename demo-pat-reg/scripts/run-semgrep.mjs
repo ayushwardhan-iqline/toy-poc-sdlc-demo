@@ -4,12 +4,11 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const uvxCommand = process.platform === 'win32' ? 'uvx.exe' : 'uvx';
-const uvCommand = process.platform === 'win32' ? 'uv.exe' : 'uv';
 const cwd = resolve(process.cwd());
 
-function run(command, args, options = {}, cwd) {
-  return spawnSync(command, args, {
+function runGit(args, options = {}) {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path
+  return spawnSync('git', args, {
     cwd,
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
@@ -17,7 +16,17 @@ function run(command, args, options = {}, cwd) {
   });
 }
 
-function runSemgrep(paths, cwd) {
+function runUvxSemgrep(args, env) {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path
+  return spawnSync('uvx', args, { cwd, stdio: 'inherit', env });
+}
+
+function runUvToolSemgrep(args, env) {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path
+  return spawnSync('uv', ['tool', 'run', ...args], { cwd, stdio: 'inherit', env });
+}
+
+function runSemgrep(paths) {
   const semgrepArgs = ['semgrep', 'scan', '--config', 'auto', '--error', ...paths];
   const semgrepEnv = {
     ...process.env,
@@ -25,10 +34,10 @@ function runSemgrep(paths, cwd) {
     PYTHONIOENCODING: 'utf-8',
   };
 
-  let result = spawnSync(uvxCommand, semgrepArgs, { cwd, stdio: 'inherit', env: semgrepEnv });
+  let result = runUvxSemgrep(semgrepArgs, semgrepEnv);
 
   if (result.error && result.error.code === 'ENOENT') {
-    result = spawnSync(uvCommand, ['tool', 'run', ...semgrepArgs], { cwd, stdio: 'inherit', env: semgrepEnv });
+    result = runUvToolSemgrep(semgrepArgs, semgrepEnv);
   }
 
   if (typeof result.status === 'number') {
@@ -44,7 +53,7 @@ export function main() {
   const isAffectedMode = process.argv.includes('--affected');
 
   if (!isAffectedMode) {
-    runSemgrep(['.'], cwd);
+    runSemgrep(['.']);
   }
 
   const base = process.env.NX_BASE;
@@ -55,7 +64,7 @@ export function main() {
     process.exit(1);
   }
 
-  const diffResult = run('git', ['diff', '--name-only', '--diff-filter=ACMR', base, head], {}, cwd);
+  const diffResult = runGit(['diff', '--name-only', '--diff-filter=ACMR', base, head]);
 
   if (diffResult.status !== 0) {
     console.error(diffResult.stderr || 'Failed to compute changed files for semgrep.');
@@ -73,7 +82,7 @@ export function main() {
     process.exit(0);
   }
 
-  runSemgrep(changedFiles, cwd);
+  runSemgrep(changedFiles);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

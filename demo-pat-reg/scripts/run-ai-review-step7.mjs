@@ -1,5 +1,5 @@
 /* eslint-disable security/detect-non-literal-fs-filename */
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { resolve, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +15,6 @@ const modeArg = process.argv.find((arg) => arg.startsWith('--mode=')) ?? '';
 const mode = modeArg.split('=')[1] === 'full' ? 'full' : 'affected';
 
 const model = process.env.OPENCODE_MODEL?.trim() || 'opencode/minimax-m2.5-free';
-const opencodeCommand = process.env.OPENCODE_BIN_PATH?.trim() || 'opencode';
 
 const architectureAgentPath = resolve(agentsDir, 'step7-architecture-review.md');
 const qualityAgentPath = resolve(agentsDir, 'step7-code-quality-review.md');
@@ -59,8 +58,19 @@ export function stripAnsi(value) {
   return output;
 }
 
-function run(command, args, options = {}) {
-  return spawnSync(command, args, {
+function runOpencode(args, options = {}) {
+  // eslint-disable-next-line sonarjs/no-os-command-from-path
+  return spawnSync('opencode', args, {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 10 * 1024 * 1024,
+    ...options,
+  });
+}
+
+function runNode(args, options = {}) {
+  return spawnSync(process.execPath, args, {
     cwd: projectRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -75,36 +85,7 @@ function requiredFile(pathToCheck, label) {
   }
 }
 
-function listMarkdownFiles(dirPath) {
-  if (!existsSync(dirPath)) {
-    return [];
-  }
 
-  const output = [];
-  const stack = [dirPath];
-
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (!current) {
-      continue;
-    }
-
-    const entries = readdirSync(current, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = resolve(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(fullPath);
-        continue;
-      }
-
-      if (entry.isFile() && fullPath.toLowerCase().endsWith('.md')) {
-        output.push(fullPath);
-      }
-    }
-  }
-
-  return output.sort((a, b) => a.localeCompare(b));
-}
 
 function getChangedFileAttachments(limit = 50) {
   if (!existsSync(changedFilesPath)) {
@@ -141,7 +122,7 @@ function collectScriptContext() {
   const collectScriptPath = resolve(projectRoot, 'scripts', 'collect-ai-context.mjs');
   requiredFile(collectScriptPath, 'context collector script');
 
-  const result = run(process.execPath, [collectScriptPath, `--mode=${mode}`], {
+  const result = runNode([collectScriptPath, `--mode=${mode}`], {
     stdio: ['ignore', 'inherit', 'inherit'],
   });
 
@@ -165,7 +146,7 @@ export function runAgent({ title, agentName, outputPath, attachments, message })
 
   console.log(`Running ${title} with ${uniqueAttachments.length} attached files...`);
 
-  const result = run(opencodeCommand, args);
+  const result = runOpencode(args);
   if (result.error) {
     throw new Error(`${title} failed.\nFailed to execute opencode: ${result.error.message}`);
   }
@@ -284,10 +265,12 @@ export function main() {
         'Generate the Step 7 code quality review report using the attached context. Follow the required report format exactly.',
     });
 
-    const taskDocs = listMarkdownFiles(resolve(repoRoot, 'engineering-tasks'));
-    const storyDocs = listMarkdownFiles(resolve(repoRoot, 'user-stories'));
+    const manifestPath = resolve(contextDir, 'context-manifest.json');
+    requiredFile(manifestPath, 'context manifest');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    const explicitTaskDocs = (manifest.linkedTaskDocs || []).map((p) => resolve(projectRoot, p));
 
-    const arbiterAttachments = [architectureReportPath, qualityReportPath, prDiffPath, changedFilesPath, ...taskDocs, ...storyDocs];
+    const arbiterAttachments = [architectureReportPath, qualityReportPath, prDiffPath, changedFilesPath, ...explicitTaskDocs];
 
     runAgent({
       title: 'Final Review',

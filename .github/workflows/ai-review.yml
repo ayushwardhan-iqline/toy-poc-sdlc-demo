@@ -1,0 +1,173 @@
+name: AI Review
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  ai-review:
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/review') }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: hims
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: demo-pat-reg
+    env:
+      OPENCODE_MODEL: ${{ secrets.OPENCODE_MODEL || vars.OPENCODE_MODEL || 'opencode/minimax-m2.5-free' }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REQUIRE_PR_TASKS: 'true'
+
+    steps:
+      - name: Fetch PR Details
+        id: pr-details
+        run: |
+          # The event payload is for the issue (PR wrapper). We need the exact branch and SHA for the PR head.
+          PR_JSON=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
+          HEAD_SHA=$(echo "$PR_JSON" | jq -r .head.sha)
+          HEAD_REF=$(echo "$PR_JSON" | jq -r .head.ref)
+          BASE_SHA=$(echo "$PR_JSON" | jq -r .base.sha)
+          BASE_REF=$(echo "$PR_JSON" | jq -r .base.ref)
+          
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Set Commit Status (Pending)
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/statuses/${{ steps.pr-details.outputs.head_sha }} \
+            -f state='pending' \
+            -f description='AI Review in progress...' \
+            -f context='AI Code Review (Step 7)'
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/statuses/${{ steps.pr-details.outputs.head_sha }} \
+            -f state='pending' \
+            -f description='AI E2E Judge in progress...' \
+            -f context='AI E2E Judge (Step 8.5)'
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr-details.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Setup Bun & Node
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install OpenCode CLI
+        run: npm install --global opencode-ai@1.2.24
+
+      - name: Build PR Context
+        id: build-context
+        run: |
+          BODY=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }} | jq -r .body)
+          COMMENTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments | jq -r '.[].body')
+          
+          {
+            echo "PR_CONTEXT<<EOF"
+            echo "$BODY"
+            echo "$COMMENTS"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Run AI Code Review (Step 7)
+        id: step7
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          NX_BASE: ${{ steps.pr-details.outputs.base_sha }}
+          NX_HEAD: ${{ steps.pr-details.outputs.head_sha }}
+        run: |
+          bun run ci:affected:ai:review
+          echo "status=success" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Prepare Test Database
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/hims
+        run: bun run db:push
+
+      - name: Run E2E Tests for Judge Context
+        id: e2e
+        env:
+          NX_BASE: ${{ steps.pr-details.outputs.base_sha }}
+          NX_HEAD: ${{ steps.pr-details.outputs.head_sha }}
+        run: bun run ci:affected:test:e2e
+        continue-on-error: true
+
+      - name: Run AI E2E Judge (Step 8.5)
+        id: step85
+        if: ${{ steps.e2e.outcome == 'success' || steps.e2e.outcome == 'failure' }}
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          NX_BASE: ${{ steps.pr-details.outputs.base_sha }}
+          NX_HEAD: ${{ steps.pr-details.outputs.head_sha }}
+        run: |
+          bun run ci:affected:ai:judge-e2e
+          echo "status=success" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Set Commit Status & Post Comment
+        if: always()
+        run: |
+          STEP7_STATE="${{ steps.step7.outputs.status == 'success' && 'success' || 'failure' }}"
+          STEP85_STATE="${{ steps.step85.outputs.status == 'success' && 'success' || 'failure' }}"
+          
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/statuses/${{ steps.pr-details.outputs.head_sha }} \
+            -f state=$STEP7_STATE \
+            -f description="AI Code Review finished ($STEP7_STATE)" \
+            -f context='AI Code Review (Step 7)'
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/statuses/${{ steps.pr-details.outputs.head_sha }} \
+            -f state=$STEP85_STATE \
+            -f description="AI E2E Judge finished ($STEP85_STATE)" \
+            -f context='AI E2E Judge (Step 8.5)'
+
+          COMMENT_BODY="### AI Review Completed ✅
+          - **AI Code Review:** $STEP7_STATE
+          - **AI E2E Judge:** $STEP85_STATE
+          
+          See the [Workflow logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
+          
+          # Only comment if we actually got past setup
+          if [ -n "${{ steps.pr-details.outputs.head_sha }}" ]; then
+            gh pr comment ${{ github.event.issue.number }} --body "$COMMENT_BODY"
+          fi
