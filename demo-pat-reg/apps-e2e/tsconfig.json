@@ -27,12 +27,12 @@
     "src/**/*.spec.js",
     "src/**/*.test.ts",
     "src/**/*.test.js",
-    "src/**/*.d.ts",
-    "../libs/src/**/*.ts"
+    "src/**/*.d.ts"
   ],
   "exclude": ["out-tsc", "test-output"],
   // Nx TypeScript sync manages this reference automatically based on the dependency graph.
-  // This is the same approach used by apps/backend/tsconfig.app.json.
+  // Points to the library config directly (not the solution-style tsconfig.json), matching
+  // the approach used by apps/backend/tsconfig.app.json.
   "references": [
     {
       "path": "../libs"
