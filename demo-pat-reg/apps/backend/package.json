@@ -112,5 +112,8 @@
   "dependencies": {
     "@demo-pat-reg/shared": "0.0.1",
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@ngneat/falso": "^8.0.2"
   }
 }

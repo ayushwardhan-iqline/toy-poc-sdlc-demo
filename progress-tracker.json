@@ -16,7 +16,8 @@
         "ET-002",
         "ET-003",
         "ET-004",
-        "ET-005"
+        "ET-005",
+        "ET-007"
       ]
     }
   ],
@@ -50,6 +51,11 @@
       "id": "ET-006",
       "title": "Establish Production-Grade CI/CD Pipeline",
       "type": "Infrastructure Chore",
+      "status": "Done"
+    },
+    {
+      "id": "ET-007",
+      "title": "Database Seeding Strategy using Falso and Drizzle",
       "status": "Done"
     }
   ]

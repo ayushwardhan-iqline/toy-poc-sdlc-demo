@@ -3,11 +3,17 @@
   "compilerOptions": {
     "module": "esnext",
     "moduleResolution": "bundler",
+    "outDir": "dist/out-tsc/spec",
     "types": ["vitest/globals", "vitest", "node"]
   },
   "include": [
     "src/**/*.spec.ts",
     "src/**/*.test.ts",
     "src/**/*.d.ts"
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.lib.json"
+    }
   ]
 }
