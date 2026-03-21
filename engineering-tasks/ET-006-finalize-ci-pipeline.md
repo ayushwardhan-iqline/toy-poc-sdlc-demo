@@ -1,7 +1,7 @@
 # Engineering Task ET-006 [CHORE]
 
 **Type:** Infrastructure / DevOps Chore
-**Status:** In Progress
+**Status:** Done
 
 ## Description
 
@@ -57,17 +57,17 @@ This undertaking involves significant architectural decisions around:
 - [x] Validate script test suite passes on both platforms
 
 ### Phase 6: Verification & Documentation
-- [ ] Verify full CI suite passes locally via `ci:affected:all`
-- [ ] Verify full CI suite passes in GitHub Actions
-- [ ] Document any environment-specific setup requirements
-- [ ] Update `INTENDED_CI_FLOW.md` if deviations were necessary
+- [x] Verify full CI suite passes locally via `ci:affected:all`
+- [x] Verify full CI suite passes in GitHub Actions
+- [x] Document any environment-specific setup requirements
+- [x] Update `INTENDED_CI_FLOW.md` if deviations were necessary
 
 ### Phase 7: Ergonomic Improvements (AI Context & Triggers)
-- [ ] Refactor `collect-ai-context.mjs` to parse explicitly linked ET/IQ tasks from PR body/comments.
-- [ ] Ensure CI fails explicitly if no task/story references can be found.
-- [ ] Remove automatic AI steps from `ci.yml`.
-- [ ] Implement `ai-review.yml` triggered via `issue_comment` (`/review`).
-- [ ] Configure AI review GitHub action to post "pending" / "success" / "failure" commit statuses to block unreviewed PRs from merging.
+- [x] Refactor `collect-ai-context.mjs` to parse explicitly linked ET/IQ tasks from PR body/comments.
+- [x] Ensure CI fails explicitly if no task/story references can be found.
+- [x] Remove automatic AI steps from `ci.yml`.
+- [x] Implement `ai-review.yml` triggered via `issue_comment` (`/review`).
+- [x] Configure AI review GitHub action to post "pending" / "success" / "failure" commit statuses to block unreviewed PRs from merging.
 
 ## Scope & Complexity Assessment
 
@@ -96,6 +96,6 @@ This undertaking involves significant architectural decisions around:
 - [x] Unit tests pass (`ci:full:test:unit`)
 - [x] Coverage gates pass (`ci:full:test:coverage`)
 - [x] Jest completely removed from the monorepo
-- [ ] GitHub Actions workflow runs without manual intervention
-- [ ] Full CI pipeline completes in under 10 minutes for affected projects
-- [ ] Documentation updated with any deviations from `INTENDED_CI_FLOW.md`
+- [x] GitHub Actions workflow runs without manual intervention
+- [x] Full CI pipeline completes in under 10 minutes for affected projects
+- [x] Documentation updated with any deviations from `INTENDED_CI_FLOW.md`

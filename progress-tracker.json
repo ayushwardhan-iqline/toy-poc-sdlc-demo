@@ -34,7 +34,7 @@
     {
       "id": "ET-003",
       "title": "Implement Backend Data Access & Use Case for Listing Visits",
-      "status": "Todo"
+      "status": "Done"
     },
     {
       "id": "ET-004",
@@ -50,7 +50,7 @@
       "id": "ET-006",
       "title": "Establish Production-Grade CI/CD Pipeline",
       "type": "Infrastructure Chore",
-      "status": "In Progress"
+      "status": "Done"
     }
   ]
 }
