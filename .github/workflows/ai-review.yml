@@ -36,6 +36,11 @@ jobs:
       REQUIRE_PR_TASKS: 'true'
 
     steps:
+      - name: Initialize Workflow Environment
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Fetch PR Details
         id: pr-details
         run: |
@@ -50,6 +55,9 @@ jobs:
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
           echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
           echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Switch to PR Head
+        run: git checkout ${{ steps.pr-details.outputs.head_sha }}
 
       - name: Set Commit Status (Pending)
         run: |
@@ -68,12 +76,6 @@ jobs:
             -f state='pending' \
             -f description='AI E2E Judge in progress...' \
             -f context='AI E2E Judge (Step 8.5)'
-
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.pr-details.outputs.head_sha }}
-          fetch-depth: 0
 
       - name: Setup Bun & Node
         uses: oven-sh/setup-bun@v1
