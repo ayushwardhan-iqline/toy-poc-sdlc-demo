@@ -22,6 +22,8 @@ export default defineConfig(() => ({
   },
   plugins: [react(), tailwindcss()],
   test: {
+    environment: 'jsdom',
+    globals: true,
     passWithNoTests: true,
     coverage: {
       provider: 'v8',

@@ -1,5 +1,5 @@
 import { patients, visits } from '@demo-pat-reg/shared';
-import { randFullName, randNumber, randPhoneNumber, randUuid } from '@ngneat/falso';
+import { randNumber, randPhoneNumber, randUuid } from '@ngneat/falso';
 
 import { expect, test } from './fixtures';
 
@@ -10,34 +10,73 @@ import { expect, test } from './fixtures';
  * This keeps the suite hermetic regardless of what `db:seed` (the dev seed)
  * has inserted previously.
  */
-test('IQ-002: displays recent visits on the dashboard', async ({ page, db }) => {
-  // ── 1. Arrange: seed isolated data ────────────────────────────────────────
-  const testPatient = {
-    id: randUuid(),
-    salutation: 'Mr.' as const,
-    name: randFullName(),
-    gender: 'Male',
-    phoneNumber: (randPhoneNumber({ countryCode: 'IN' }) ?? '+91-9999999999') as string,
-    address: 'Test City',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-  await db.insert(patients).values(testPatient);
+test.describe('IQ-002 – Recent Visits Dashboard', () => {
+  test('displays recent visits on the dashboard', async ({ page, db }) => {
+    const testPatient = {
+      id: randUuid(),
+      salutation: 'Mr.' as const,
+      name: `Patient-${randNumber({ min: 1000, max: 9999 })}`,
+      gender: 'Male',
+      phoneNumber: (randPhoneNumber({ countryCode: 'IN' }) ?? '+91-9999999999') as string,
+      address: 'Test City',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await db.insert(patients as any).values(testPatient);
 
-  const testVisit = {
-    id: randUuid(),
-    visitNumber: `VISIT-${randNumber({ min: 1000, max: 9999 })}`,
-    status: 'registered',
-    type: 'consultation',
-    patientId: testPatient.id,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-  await db.insert(visits).values(testVisit);
+    const testVisit = {
+      id: randUuid(),
+      visitNumber: `VISIT-${randNumber({ min: 1000, max: 9999 })}`,
+      status: 'registered',
+      type: 'consultation',
+      patientId: testPatient.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await db.insert(visits as any).values(testVisit);
 
-  // ── 2. Act ─────────────────────────────────────────────────────────────────
-  await page.goto('/');
+    await page.goto('/');
 
-  // ── 3. Assert – expand these once ET-005 (VisitsDataTable) is implemented ──
-  await expect(page.locator('h1')).toContainText('Welcome');
+    await expect(page.getByRole('heading', { name: 'Recent Visits' })).toBeVisible();
+    
+    // Check table displays the seeded patient row explicitly
+    await expect(page.getByRole('table')).toBeVisible();
+    const patientRow = page.getByRole('row', { name: testPatient.name });
+    await expect(patientRow).toBeVisible({ timeout: 10000 });
+    await expect(patientRow.getByRole('cell', { name: 'registered' })).toBeVisible();
+  });
+
+  test('filters visits by search term', async ({ page, db }) => {
+    const p1 = { id: randUuid(), salutation: 'Mr.' as const, name: `Alpha-${randNumber({ min: 1000, max: 9999 })}`, gender: 'Male', phoneNumber: '+91-9999999991', address: 'City', createdAt: new Date(), updatedAt: new Date() };
+    const p2 = { id: randUuid(), salutation: 'Ms.' as const, name: `Beta-${randNumber({ min: 1000, max: 9999 })}`, gender: 'Female', phoneNumber: '+91-9999999992', address: 'City', createdAt: new Date(), updatedAt: new Date() };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await db.insert(patients as any).values([p1, p2]);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await db.insert(visits as any).values([
+      { id: randUuid(), visitNumber: `VISIT-A`, status: 'registered', type: 'consultation', patientId: p1.id, createdAt: new Date(), updatedAt: new Date() },
+      { id: randUuid(), visitNumber: `VISIT-B`, status: 'registered', type: 'consultation', patientId: p2.id, createdAt: new Date(), updatedAt: new Date() }
+    ]);
+
+    await page.goto('/');
+    await expect(page.getByRole('cell', { name: p1.name })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('cell', { name: p2.name })).toBeVisible();
+
+    await page.getByPlaceholder('Search visits...').fill(p1.name);
+
+    await expect(page.getByRole('cell', { name: p1.name })).toBeVisible();
+    await expect(page.getByRole('cell', { name: p2.name })).not.toBeVisible();
+  });
+
+  test('displays empty state when no visits match search', async ({ page }) => {
+    await page.goto('/');
+    
+    await page.getByPlaceholder('Search visits...').fill('non-existent-search-string-xyz123');
+
+    // Wait for debounce and result
+    await expect(page.getByText('No visits match your search.')).toBeVisible({ timeout: 10000 });
+  });
 });
+

@@ -1,15 +1,12 @@
 import { test as base } from '@playwright/test';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { testDbUrl } from '../../playwright.config';
 
-// In CI, DATABASE_URL is injected by the GitHub Actions service. 
-// Locally it falls back to the dev database.
-const dbUrl =
-  process.env['DATABASE_URL'] ?? 'postgresql://user:password@localhost:5432/hims';
-
-// These are module-level singletons — the connection is shared across all tests
-// in a single worker, matching Playwright's concurrency model.
-const queryClient = postgres(dbUrl);
+// Module-level singletons: shared across all tests in a single Playwright worker,
+// matching Playwright's concurrency model. This is the same database the backend
+// webServer is pointed at via playwright.config.ts → webServer.env.
+const queryClient = postgres(testDbUrl);
 const dbInstance = drizzle(queryClient);
 
 // ─────────────────────────────────────────────────────────────────────────────

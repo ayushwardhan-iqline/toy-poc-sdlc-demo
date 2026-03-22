@@ -12,6 +12,11 @@
     "implicitDependencies": [
       "@demo-pat-reg/frontend",
       "@demo-pat-reg/backend"
-    ]
+    ],
+    "targets": {
+      "e2e": {
+        "dependsOn": ["^build"]
+      }
+    }
   }
 }
