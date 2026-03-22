@@ -139,11 +139,54 @@ jobs:
           echo "status=success" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
+      - name: Publish AI Review Summary
+        if: always()
+        run: |
+          append_report() {
+            local title="$1"
+            local path="$2"
+
+            if [ -f "$path" ]; then
+              echo "## $title" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              cat "$path" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "## $title" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "Report not generated." >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+
+          echo "# AI Review Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Artifacts for all generated reports are attached to this workflow run." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          append_report "Final Review" "reports/final-review.md"
+          append_report "E2E Judge Review" "reports/e2e-judge-review.md"
+          append_report "Architecture Review" "reports/architecture-review.md"
+          append_report "Code Quality Review" "reports/code-quality-review.md"
+
+      - name: Upload AI Review Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-review-reports-${{ github.run_id }}
+          path: |
+            demo-pat-reg/reports/**
+          if-no-files-found: warn
+
       - name: Set Commit Status & Post Comment
         if: always()
         run: |
           STEP7_STATE="${{ steps.step7.outputs.status == 'success' && 'success' || 'failure' }}"
           STEP85_STATE="${{ steps.step85.outputs.status == 'success' && 'success' || 'failure' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          COMMENT_MARKER="<!-- ai-review-report -->"
           
           gh api \
             --method POST \
@@ -161,13 +204,56 @@ jobs:
             -f description="AI E2E Judge finished ($STEP85_STATE)" \
             -f context='AI E2E Judge (Step 8.5)'
 
-          COMMENT_BODY="### AI Review Completed ✅
-          - **AI Code Review:** $STEP7_STATE
-          - **AI E2E Judge:** $STEP85_STATE
-          
-          See the [Workflow logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
-          
           # Only comment if we actually got past setup
           if [ -n "${{ steps.pr-details.outputs.head_sha }}" ]; then
-            gh pr comment ${{ github.event.issue.number }} --body "$COMMENT_BODY"
+            append_comment_section() {
+              local title="$1"
+              local path="$2"
+
+              echo "<details><summary>$title</summary>"
+              echo ""
+              if [ -f "$path" ]; then
+                cat "$path"
+              else
+                echo "Report not generated."
+              fi
+              echo ""
+              echo "</details>"
+              echo ""
+            }
+
+            {
+              echo "$COMMENT_MARKER"
+              echo "### AI Review Completed"
+              echo ""
+              echo "- **AI Code Review:** $STEP7_STATE"
+              echo "- **AI E2E Judge:** $STEP85_STATE"
+              echo ""
+              echo "See the [workflow run]($RUN_URL) for the full job summary, logs, and downloadable AI review artifacts."
+              echo ""
+              append_comment_section "Final Review" "reports/final-review.md"
+              append_comment_section "E2E Judge Review" "reports/e2e-judge-review.md"
+            } > ai-review-comment.md
+
+            python3 - <<'PY' > ai-review-comment.json
+            import json
+            from pathlib import Path
+
+            body = Path("ai-review-comment.md").read_text(encoding="utf-8")
+            print(json.dumps({"body": body}))
+            PY
+
+            COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments --paginate --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$COMMENT_MARKER\"))) | .id" | tail -n 1)
+
+            if [ -n "$COMMENT_ID" ]; then
+              gh api \
+                --method PATCH \
+                repos/${{ github.repository }}/issues/comments/$COMMENT_ID \
+                --input ai-review-comment.json >/dev/null
+            else
+              gh api \
+                --method POST \
+                repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+                --input ai-review-comment.json >/dev/null
+            fi
           fi

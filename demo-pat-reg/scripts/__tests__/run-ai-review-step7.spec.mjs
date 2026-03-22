@@ -94,9 +94,11 @@ describe('run-ai-review-step7.mjs', () => {
       expect(args[1]).toBe('review this');
       expect(args).toContain('--agent');
       expect(args).toContain('step7-architecture-review');
+      expect(args).not.toContain('--print-logs');
       expect(args).toContain('--file');
       expect(args.at(-2)).toBe('--file');
       expect(args.at(-1)).toBe('a.md');
+      expect(spawnSync.mock.calls[0][2].stdio).toEqual(['ignore', 'pipe', 'pipe']);
       expect(writeFileSync).toHaveBeenCalledWith('review.md', 'CI_DECISION: PASS\n', 'utf8');
     });
   });

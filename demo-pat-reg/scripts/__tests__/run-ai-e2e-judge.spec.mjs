@@ -15,7 +15,7 @@ vi.mock('node:child_process', () => ({
 
 import { writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { evaluateGate, hasBlockingSeverityLabel, runAgent, stripAnsi } from '../run-ai-e2e-judge.mjs';
+import { evaluateGate, hasBlockingSeverityLabel, isPlaywrightReportPath, runAgent, stripAnsi } from '../run-ai-e2e-judge.mjs';
 
 describe('run-ai-e2e-judge.mjs', () => {
   describe('stripAnsi', () => {
@@ -28,6 +28,20 @@ describe('run-ai-e2e-judge.mjs', () => {
     it('returns true for E2E blocker traces', () => {
       expect(hasBlockingSeverityLabel('This test failed due to [BLOCKER]')).toBe(true);
       expect(hasBlockingSeverityLabel('* CRITICAL UI failure')).toBe(true);
+    });
+  });
+
+  describe('isPlaywrightReportPath', () => {
+    it('accepts legacy playwright-report paths', () => {
+      expect(isPlaywrightReportPath('apps-e2e/playwright-report/index.html')).toBe(true);
+    });
+
+    it('accepts Nx test-output playwright report paths', () => {
+      expect(isPlaywrightReportPath('apps-e2e\\test-output\\playwright\\report\\index.html')).toBe(true);
+    });
+
+    it('rejects unrelated report files', () => {
+      expect(isPlaywrightReportPath('apps/backend-e2e/test-output/vitest/coverage/index.html')).toBe(false);
     });
   });
 
@@ -71,9 +85,11 @@ describe('run-ai-e2e-judge.mjs', () => {
       expect(args[1]).toBe('judge this');
       expect(args).toContain('--agent');
       expect(args).toContain('step8.5-e2e-judge');
+      expect(args).not.toContain('--print-logs');
       expect(args).toContain('--file');
       expect(args.at(-2)).toBe('--file');
       expect(args.at(-1)).toBe('a.txt');
+      expect(spawnSync.mock.calls[0][2].stdio).toEqual(['ignore', 'pipe', 'pipe']);
       expect(writeFileSync).toHaveBeenCalledWith('report.md', 'CI_DECISION: PASS\n', 'utf8');
     });
   });

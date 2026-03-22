@@ -15,6 +15,7 @@ const modeArg = process.argv.find((arg) => arg.startsWith('--mode=')) ?? '';
 const mode = modeArg.split('=')[1] === 'full' ? 'full' : 'affected';
 
 const model = process.env.OPENCODE_MODEL?.trim() || 'opencode/minimax-m2.5-free';
+const shouldPrintOpencodeLogs = process.env.GITHUB_ACTIONS !== 'true' && process.env.OPENCODE_PRINT_LOGS === 'true';
 
 const architectureAgentPath = resolve(agentsDir, 'step7-architecture-review.md');
 const qualityAgentPath = resolve(agentsDir, 'step7-code-quality-review.md');
@@ -59,11 +60,12 @@ export function stripAnsi(value) {
 }
 
 function runOpencode(args, options = {}) {
+  const stdio = shouldPrintOpencodeLogs ? ['ignore', 'pipe', 'inherit'] : ['ignore', 'pipe', 'pipe'];
   // eslint-disable-next-line sonarjs/no-os-command-from-path
   return spawnSync('opencode', args, {
     cwd: projectRoot,
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio,
     maxBuffer: 10 * 1024 * 1024,
     ...options,
   });
@@ -92,6 +94,9 @@ function buildOpencodeRunArgs({ agentName, attachments, message }) {
   }
 
   args.push('--model', model, '--agent', agentName, '--format', 'default', '--dir', projectRoot);
+  if (shouldPrintOpencodeLogs) {
+    args.push('--print-logs');
+  }
   for (const filePath of attachments) {
     args.push('--file', filePath);
   }
@@ -297,6 +302,10 @@ export function main() {
 
     const finalReport = readFileSync(finalReportPath, 'utf8');
     const gate = evaluateGate(finalReport);
+    console.log(`Architecture review written to ${relative(projectRoot, architectureReportPath)}.`);
+    console.log(`Code quality review written to ${relative(projectRoot, qualityReportPath)}.`);
+    console.log(`Final review written to ${relative(projectRoot, finalReportPath)}.`);
+    console.log(`CI_DECISION: ${gate.ok ? 'PASS' : 'FAIL'}`);
 
     if (!gate.ok) {
       console.error(gate.reason);

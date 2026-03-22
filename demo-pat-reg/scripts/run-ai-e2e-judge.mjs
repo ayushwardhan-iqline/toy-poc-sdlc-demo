@@ -15,6 +15,7 @@ const modeArg = process.argv.find((arg) => arg.startsWith('--mode=')) ?? '';
 const mode = modeArg.split('=')[1] === 'full' ? 'full' : 'affected';
 
 const model = process.env.OPENCODE_MODEL?.trim() || 'opencode/minimax-m2.5-free';
+const shouldPrintOpencodeLogs = process.env.GITHUB_ACTIONS !== 'true' && process.env.OPENCODE_PRINT_LOGS === 'true';
 
 const judgeAgentPath = resolve(agentsDir, 'step8.5-e2e-judge.md');
 const finalReportPath = resolve(reportsDir, 'e2e-judge-review.md');
@@ -53,11 +54,12 @@ export function stripAnsi(value) {
 
 function runOpencode(args, options = {}) {
   const cwd = options.cwd ?? projectRoot;
+  const stdio = shouldPrintOpencodeLogs ? ['ignore', 'pipe', 'inherit'] : ['ignore', 'pipe', 'pipe'];
   // eslint-disable-next-line sonarjs/no-os-command-from-path
   return spawnSync('opencode', args, {
     cwd,
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio,
     maxBuffer: 10 * 1024 * 1024,
     ...options,
   });
@@ -87,6 +89,9 @@ function buildOpencodeRunArgs({ agentName, attachments, message }) {
   }
 
   args.push('--model', model, '--agent', agentName, '--format', 'default', '--dir', projectRoot);
+  if (shouldPrintOpencodeLogs) {
+    args.push('--print-logs');
+  }
   for (const filePath of attachments) {
     args.push('--file', filePath);
   }
@@ -94,9 +99,14 @@ function buildOpencodeRunArgs({ agentName, attachments, message }) {
   return args;
 }
 
+export function isPlaywrightReportPath(fullPath) {
+  const normalizedPath = fullPath.replaceAll('\\', '/');
+  return normalizedPath.includes('/playwright-report/') || normalizedPath.includes('/test-output/playwright/report/');
+}
+
 function isTargetReportFile(entry, fullPath) {
   if (!entry.isFile()) return false;
-  if (!fullPath.includes('playwright-report')) return false;
+  if (!isPlaywrightReportPath(fullPath)) return false;
   return entry.name === 'index.html' || entry.name.endsWith('.json');
 }
 
@@ -310,6 +320,8 @@ export function main() {
 
     const finalReport = readFileSync(finalReportPath, 'utf8');
     const gate = evaluateGate(finalReport);
+    console.log(`E2E Judge report written to ${relative(projectRoot, finalReportPath)}.`);
+    console.log(`CI_DECISION: ${gate.ok ? 'PASS' : 'FAIL'}`);
 
     if (!gate.ok) {
       console.error(gate.reason);
