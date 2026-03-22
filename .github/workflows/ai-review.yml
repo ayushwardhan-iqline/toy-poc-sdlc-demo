@@ -5,6 +5,7 @@ on:
     types: [created]
 
 permissions:
+  actions: read
   contents: read
   pull-requests: write
   statuses: write
@@ -154,6 +155,61 @@ jobs:
             demo-pat-reg/reports/**
           if-no-files-found: warn
 
+      - name: Resolve Latest CI E2E Artifact
+        id: ci-e2e-artifact
+        if: always()
+        run: |
+          REPO="${{ github.repository }}"
+          HEAD_SHA="${{ steps.pr-details.outputs.head_sha }}"
+          HEAD_REF="${{ steps.pr-details.outputs.head_ref }}"
+
+          if [ -z "$HEAD_SHA" ] || [ -z "$HEAD_REF" ]; then
+            exit 0
+          fi
+
+          RUNS_JSON=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "repos/$REPO/actions/workflows/ci.yml/runs?event=pull_request&branch=$HEAD_REF&per_page=20")
+
+          CI_RUN_ID=$(echo "$RUNS_JSON" | jq -r --arg HEAD_SHA "$HEAD_SHA" '
+            [
+              .workflow_runs[]
+              | select(.head_sha == $HEAD_SHA)
+              | select(.status == "completed")
+            ]
+            | sort_by(.created_at)
+            | last
+            | .id // empty
+          ')
+
+          if [ -z "$CI_RUN_ID" ]; then
+            exit 0
+          fi
+
+          CI_RUN_URL="https://github.com/$REPO/actions/runs/$CI_RUN_ID"
+          echo "run_url=$CI_RUN_URL" >> "$GITHUB_OUTPUT"
+
+          ARTIFACTS_JSON=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "repos/$REPO/actions/runs/$CI_RUN_ID/artifacts")
+
+          ARTIFACT_ID=$(echo "$ARTIFACTS_JSON" | jq -r '
+            [
+              .artifacts[]
+              | select(.expired == false)
+              | select(.name | startswith("playwright-artifacts-"))
+            ]
+            | sort_by(.created_at)
+            | last
+            | .id // empty
+          ')
+
+          if [ -z "$ARTIFACT_ID" ]; then
+            exit 0
+          fi
+
+          echo "artifact_url=https://github.com/$REPO/actions/runs/$CI_RUN_ID/artifacts/$ARTIFACT_ID" >> "$GITHUB_OUTPUT"
+
       - name: Set Commit Status & Post Comment
         if: always()
         run: |
@@ -204,6 +260,13 @@ jobs:
               echo "- **AI E2E Judge:** $STEP85_STATE"
               echo ""
               echo "See the [workflow run]($RUN_URL) for the full job summary, logs, and downloadable AI review artifacts."
+              if [ -n "${{ steps.ci-e2e-artifact.outputs.artifact_url }}" ]; then
+                echo "For Step 8 outputs, see the [latest CI E2E report artifact](${{ steps.ci-e2e-artifact.outputs.artifact_url }}) from [CI](${{ steps.ci-e2e-artifact.outputs.run_url }})."
+                echo ""
+              elif [ -n "${{ steps.ci-e2e-artifact.outputs.run_url }}" ]; then
+                echo "For Step 8 outputs, see the [latest CI workflow run](${{ steps.ci-e2e-artifact.outputs.run_url }}) for its E2E artifacts."
+                echo ""
+              fi
               echo ""
               append_comment_section "Final Review" "reports/final-review.md"
               append_comment_section "E2E Judge Review" "reports/e2e-judge-review.md"
