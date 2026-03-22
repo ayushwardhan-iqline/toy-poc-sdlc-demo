@@ -1,0 +1,275 @@
+name: AI Review
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  ai-review:
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/review') }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: hims
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: demo-pat-reg
+    env:
+      OPENCODE_MODEL: ${{ secrets.OPENCODE_MODEL || vars.OPENCODE_MODEL || 'opencode/minimax-m2.5-free' }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REQUIRE_PR_TASKS: 'true'
+
+    steps:
+      - name: Fetch PR Details
+        id: pr-details
+        run: |
+          # The event payload is for the issue (PR wrapper). We need the exact branch and SHA for the PR head.
+          PR_JSON=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
+          HEAD_SHA=$(echo "$PR_JSON" | jq -r .head.sha)
+          HEAD_REF=$(echo "$PR_JSON" | jq -r .head.ref)
+          BASE_SHA=$(echo "$PR_JSON" | jq -r .base.sha)
+          BASE_REF=$(echo "$PR_JSON" | jq -r .base.ref)
+          
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "base_ref=$BASE_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Set Commit Status (Pending)
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/statuses/${{ steps.pr-details.outputs.head_sha }} \
+            -f state='pending' \
+            -f description='AI Review in progress...' \
+            -f context='AI Code Review (Step 7)'
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/statuses/${{ steps.pr-details.outputs.head_sha }} \
+            -f state='pending' \
+            -f description='AI E2E Judge in progress...' \
+            -f context='AI E2E Judge (Step 8.5)'
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr-details.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Setup Bun & Node
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright Browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Install OpenCode CLI
+        run: npm install --global opencode-ai@1.2.24
+
+      - name: Build PR Context
+        id: build-context
+        run: |
+          BODY=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }} | jq -r .body)
+          COMMENTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments | jq -r '.[].body')
+          
+          {
+            echo "PR_CONTEXT<<EOF"
+            echo "$BODY"
+            echo "$COMMENTS"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Run AI Code Review (Step 7)
+        id: step7
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          NX_BASE: ${{ steps.pr-details.outputs.base_sha }}
+          NX_HEAD: ${{ steps.pr-details.outputs.head_sha }}
+        run: |
+          bun run ci:affected:ai:review
+          echo "status=success" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Prepare Test Database
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/hims
+        run: bun run db:push
+
+      - name: Run E2E Tests for Judge Context
+        id: e2e
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/hims
+          NX_BASE: ${{ steps.pr-details.outputs.base_sha }}
+          NX_HEAD: ${{ steps.pr-details.outputs.head_sha }}
+        run: bun run ci:affected:test:e2e
+        continue-on-error: true
+
+      - name: Run AI E2E Judge (Step 8.5)
+        id: step85
+        if: ${{ steps.e2e.outcome == 'success' || steps.e2e.outcome == 'failure' }}
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          NX_BASE: ${{ steps.pr-details.outputs.base_sha }}
+          NX_HEAD: ${{ steps.pr-details.outputs.head_sha }}
+        run: |
+          bun run ci:affected:ai:judge-e2e
+          echo "status=success" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Upload E2E Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts-${{ github.run_id }}
+          path: |
+            demo-pat-reg/apps-e2e/test-output/playwright/report/**
+            demo-pat-reg/apps-e2e/test-output/playwright/output/**
+            demo-pat-reg/**/playwright-report/**
+            demo-pat-reg/**/test-results/**
+          if-no-files-found: ignore
+
+      - name: Publish AI Review Summary
+        if: always()
+        run: |
+          append_report() {
+            local title="$1"
+            local path="$2"
+
+            if [ -f "$path" ]; then
+              echo "## $title" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              cat "$path" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "## $title" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "Report not generated." >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+
+          echo "# AI Review Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Artifacts for all generated reports are attached to this workflow run." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          append_report "Final Review" "reports/final-review.md"
+          append_report "E2E Judge Review" "reports/e2e-judge-review.md"
+          append_report "Architecture Review" "reports/architecture-review.md"
+          append_report "Code Quality Review" "reports/code-quality-review.md"
+
+      - name: Upload AI Review Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-review-reports-${{ github.run_id }}
+          path: |
+            demo-pat-reg/reports/**
+          if-no-files-found: warn
+
+      - name: Set Commit Status & Post Comment
+        if: always()
+        run: |
+          STEP7_STATE="${{ steps.step7.outputs.status == 'success' && 'success' || 'failure' }}"
+          STEP85_STATE="${{ steps.step85.outputs.status == 'success' && 'success' || 'failure' }}"
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          COMMENT_MARKER="<!-- ai-review-report -->"
+          
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/statuses/${{ steps.pr-details.outputs.head_sha }} \
+            -f state=$STEP7_STATE \
+            -f description="AI Code Review finished ($STEP7_STATE)" \
+            -f context='AI Code Review (Step 7)'
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/${{ github.repository }}/statuses/${{ steps.pr-details.outputs.head_sha }} \
+            -f state=$STEP85_STATE \
+            -f description="AI E2E Judge finished ($STEP85_STATE)" \
+            -f context='AI E2E Judge (Step 8.5)'
+
+          # Only comment if we actually got past setup
+          if [ -n "${{ steps.pr-details.outputs.head_sha }}" ]; then
+            append_comment_section() {
+              local title="$1"
+              local path="$2"
+
+              echo "<details><summary>$title</summary>"
+              echo ""
+              if [ -f "$path" ]; then
+                cat "$path"
+              else
+                echo "Report not generated."
+              fi
+              echo ""
+              echo "</details>"
+              echo ""
+            }
+
+            {
+              echo "$COMMENT_MARKER"
+              echo "### AI Review Completed"
+              echo ""
+              echo "- **AI Code Review:** $STEP7_STATE"
+              echo "- **AI E2E Judge:** $STEP85_STATE"
+              echo ""
+              echo "See the [workflow run]($RUN_URL) for the full job summary, logs, and downloadable AI review artifacts."
+              echo ""
+              append_comment_section "Final Review" "reports/final-review.md"
+              append_comment_section "E2E Judge Review" "reports/e2e-judge-review.md"
+            } > ai-review-comment.md
+
+            python3 - <<'PY' > ai-review-comment.json
+            import json
+            from pathlib import Path
+
+            body = Path("ai-review-comment.md").read_text(encoding="utf-8")
+            print(json.dumps({"body": body}))
+            PY
+
+            COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments --paginate --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$COMMENT_MARKER\"))) | .id" | tail -n 1)
+
+            if [ -n "$COMMENT_ID" ]; then
+              gh api \
+                --method PATCH \
+                repos/${{ github.repository }}/issues/comments/$COMMENT_ID \
+                --input ai-review-comment.json >/dev/null
+            else
+              gh api \
+                --method POST \
+                repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments \
+                --input ai-review-comment.json >/dev/null
+            fi
+          fi
