@@ -6,6 +6,36 @@
       "sourceType": "github",
       "computedHash": "b5edc4ff0ed653de93d4a2b18d2d7cd6b914f6fff981e2e3b2a099497fbd57d1"
     },
+    "link-workspace-packages": {
+      "source": "nrwl/nx-ai-agents-config",
+      "sourceType": "github",
+      "computedHash": "7037799a47b8599f38ce66a0b9dfa53e810bb9003bcd8d90eba99b8c4fd3387b"
+    },
+    "nx-generate": {
+      "source": "nrwl/nx-ai-agents-config",
+      "sourceType": "github",
+      "computedHash": "25cd19eae228e5f4d60cb3d322af4a45cf4189827032d680bedac0c82e013955"
+    },
+    "nx-import": {
+      "source": "nrwl/nx-ai-agents-config",
+      "sourceType": "github",
+      "computedHash": "b4736ba9a4d9555fff65fe212b6f0ee6eeca76d53fdb1e80962930743c30633e"
+    },
+    "nx-plugins": {
+      "source": "nrwl/nx-ai-agents-config",
+      "sourceType": "github",
+      "computedHash": "6990027490ddbd0b578c946b4055aae84f5645f93f1570c967122e0e21161f78"
+    },
+    "nx-run-tasks": {
+      "source": "nrwl/nx-ai-agents-config",
+      "sourceType": "github",
+      "computedHash": "1e763083c059c28cdffbfcbda39e7a9549dcb60e46d68588018805427f3b28b6"
+    },
+    "nx-workspace": {
+      "source": "nrwl/nx-ai-agents-config",
+      "sourceType": "github",
+      "computedHash": "903b1355cd443c061b313cc684b1a0c9b17fa15f56a304af914c591479d70060"
+    },
     "playwright-best-practices": {
       "source": "currents-dev/playwright-best-practices-skill",
       "sourceType": "github",
