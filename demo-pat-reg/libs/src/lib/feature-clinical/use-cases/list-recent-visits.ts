@@ -6,8 +6,7 @@ export const listRecentVisits = async (
   db: VisitRepoDb,
   input: ListVisitsRequest
 ): Promise<ListVisitsResponse> => {
-  const page = input.page || 1;
-  const pageSize = input.pageSize || 10;
+  const { page, pageSize } = input;
   const offset = (page - 1) * pageSize;
 
   const result = await VisitRepo.listVisits(db, {

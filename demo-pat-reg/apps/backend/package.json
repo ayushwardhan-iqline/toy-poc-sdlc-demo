@@ -3,8 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "test:unit": "vitest run --passWithNoTests",
-    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "db:seed": "bun run src/db/seed.ts",
     "test:integration": "bun ../../scripts/run-backend-integration.mjs"
   },
   "nx": {

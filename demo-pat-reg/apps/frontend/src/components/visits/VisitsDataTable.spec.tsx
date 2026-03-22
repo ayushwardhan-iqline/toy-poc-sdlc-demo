@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { VisitsDataTable } from './VisitsDataTable';
 import { vi, describe, it, expect, beforeEach, Mock } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -145,11 +145,19 @@ describe('VisitsDataTable', () => {
     });
 
     fireEvent.change(screen.getByPlaceholderText('Search visits...'), { target: { value: 'zzz' } });
+    // Debounce is 300ms in VisitsDataTable; advance real clock so React Query is not starved
+    // (Vitest fake timers prevent useQuery from settling in this environment).
+    await act(
+      async () =>
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 350);
+        })
+    );
 
     await waitFor(() => {
       expect(getVisitsModule.getVisits).toHaveBeenLastCalledWith({ page: 1, search: 'zzz', pageSize: 10 });
       expect(screen.getByText('No visits match your search.')).toBeInTheDocument();
-    }, { timeout: 1500 });
+    });
 
     expect(screen.queryByLabelText('Go to next page')).not.toBeInTheDocument();
   });
