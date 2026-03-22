@@ -39,9 +39,9 @@ export default defineConfig({
 
   use: {
     baseURL,
-    trace: 'retain-on-failure',
-    video: 'retain-on-failure',
-    screenshot: 'only-on-failure',
+    trace: process.env.PW_ALL_ASSETS ? 'on' : 'retain-on-failure',
+    video: process.env.PW_ALL_ASSETS ? 'on' : 'retain-on-failure',
+    screenshot: process.env.PW_ALL_ASSETS ? 'on' : 'only-on-failure',
 
     // Enable slow-mo via environment variable for easier CLI debugging (e.g. SLOWMO=1000)
     launchOptions: {
