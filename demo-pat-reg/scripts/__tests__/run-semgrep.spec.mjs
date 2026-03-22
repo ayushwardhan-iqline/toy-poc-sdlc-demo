@@ -76,6 +76,9 @@ describe('run-semgrep.mjs', () => {
     process.argv = ['node', 'run-semgrep.mjs', '--affected'];
 
     spawnSync.mockImplementation((command, args) => {
+      if (command === 'git' && args.includes('--show-toplevel')) {
+        return { status: 0, stdout: '/repo\n' };
+      }
       if (command === 'git' && args.includes('--name-only')) {
         return { status: 0, stdout: 'missing-file.ts\n' };
       }
@@ -93,5 +96,40 @@ describe('run-semgrep.mjs', () => {
     expect(caughtError).toBeDefined();
     expect(caughtError.message).toContain('TEST_ABORT_EXIT_0');
     expect(exitMock).toHaveBeenCalledWith(0);
+  });
+
+  it('resolves changed files from the git repo root in affected mode', () => {
+    process.argv = ['node', 'run-semgrep.mjs', '--affected'];
+
+    spawnSync.mockImplementation((command, args) => {
+      if (command === 'git' && args.includes('--name-only')) {
+        return { status: 0, stdout: 'demo-pat-reg/apps/frontend/src/app/app.tsx\n' };
+      }
+      if (command === 'git' && args.includes('--show-toplevel')) {
+        return { status: 0, stdout: '/repo\n' };
+      }
+      if (command === 'uvx') {
+        return { status: 0 };
+      }
+      return { status: 0 };
+    });
+    existsSync.mockImplementation((path) => path.includes('demo-pat-reg') && path.includes('apps') && path.includes('app.tsx'));
+
+    let caughtError = null;
+    try {
+      main();
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeDefined();
+    expect(caughtError.message).toContain('TEST_ABORT_EXIT_0');
+    expect(spawnSync).toHaveBeenCalledWith('uvx', expect.any(Array), expect.any(Object));
+    const semgrepCall = spawnSync.mock.calls.find(([command]) => command === 'uvx');
+    expect(semgrepCall).toBeDefined();
+    expect(semgrepCall[1]).toEqual(
+      expect.arrayContaining(['semgrep', 'scan', '--config', 'auto', '--error'])
+    );
+    expect(semgrepCall[1].at(-1)).toContain('demo-pat-reg');
   });
 });

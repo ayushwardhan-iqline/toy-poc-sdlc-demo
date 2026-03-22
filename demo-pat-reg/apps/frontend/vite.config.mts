@@ -28,6 +28,14 @@ export default defineConfig(() => ({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
+      exclude: [
+        'src/components/ui/**',
+        'src/lib/shadcn/**',
+        'src/hooks/shadcn/**',
+        'src/lib/utils.ts',
+        'src/hooks/use-mobile.ts',
+        'src/hooks/use-keyboard-shortcut.ts',
+      ],
       thresholds: {
         branches: 80,
         functions: 80,

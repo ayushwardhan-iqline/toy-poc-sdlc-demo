@@ -16,6 +16,16 @@ function runGit(args, options = {}) {
   });
 }
 
+function getRepoRoot() {
+  const result = runGit(['rev-parse', '--show-toplevel']);
+  if (result.status !== 0) {
+    console.error(result.stderr || 'Failed to determine git repository root for semgrep.');
+    process.exit(1);
+  }
+
+  return result.stdout.trim();
+}
+
 function runUvxSemgrep(args, env) {
   // eslint-disable-next-line sonarjs/no-os-command-from-path
   return spawnSync('uvx', args, { cwd, stdio: 'inherit', env });
@@ -71,11 +81,13 @@ export function main() {
     process.exit(1);
   }
 
+  const repoRoot = getRepoRoot();
   const changedFiles = diffResult.stdout
     .split('\n')
     .map((file) => file.trim())
     .filter(Boolean)
-    .filter((file) => existsSync(resolve(cwd, file)));
+    .map((file) => resolve(repoRoot, file))
+    .filter((file) => existsSync(file));
 
   if (changedFiles.length === 0) {
     console.log('Skipping semgrep: no affected files to scan.');

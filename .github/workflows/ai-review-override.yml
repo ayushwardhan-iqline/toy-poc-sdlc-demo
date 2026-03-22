@@ -18,10 +18,13 @@ jobs:
 
     steps:
       - name: Validate Commenter Permission
+        env:
+          AUTHOR_ASSOCIATION: ${{ github.event.comment.author_association }}
+          ACTOR: ${{ github.actor }}
         run: |
-          case "${{ github.event.comment.author_association }}" in
+          case "$AUTHOR_ASSOCIATION" in
             OWNER|MEMBER|COLLABORATOR)
-              echo "Authorized override request from ${{ github.actor }}."
+              echo "Authorized override request from $ACTOR."
               ;;
             *)
               echo "Only repository maintainers/collaborators can override AI review checks."
@@ -31,20 +34,24 @@ jobs:
 
       - name: Fetch PR Details
         id: pr-details
+        env:
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
         run: |
-          PR_JSON=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
+          PR_JSON=$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER")
           HEAD_SHA=$(echo "$PR_JSON" | jq -r .head.sha)
 
           echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Mark AI Checks As Overridden
         env:
+          REPOSITORY: ${{ github.repository }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \
-            repos/${{ github.repository }}/statuses/${{ steps.pr-details.outputs.head_sha }} \
+            "repos/$REPOSITORY/statuses/${{ steps.pr-details.outputs.head_sha }}" \
             -f state='success' \
             -f description='Manually overridden via PR comment.' \
             -f context='AI Code Review (Step 7)' \
@@ -53,7 +60,7 @@ jobs:
           gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \
-            repos/${{ github.repository }}/statuses/${{ steps.pr-details.outputs.head_sha }} \
+            "repos/$REPOSITORY/statuses/${{ steps.pr-details.outputs.head_sha }}" \
             -f state='success' \
             -f description='Manually overridden via PR comment.' \
             -f context='AI E2E Judge (Step 8.5)' \
@@ -61,17 +68,10 @@ jobs:
 
       - name: Post Override Audit Comment
         env:
+          PR_NUMBER: ${{ github.event.issue.number }}
+          OVERRIDE_ACTOR: ${{ github.actor }}
+          OVERRIDE_COMMAND: ${{ github.event.comment.body }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh pr comment ${{ github.event.issue.number }} --body "$(cat <<EOF
-          ### AI Review Override Applied
-
-          - Actor: @${{ github.actor }}
-          - Command: `${{ github.event.comment.body }}`
-          - Workflow run: ${RUN_URL}
-
-          This manually marked these PR contexts as `success`:
-          - `AI Code Review (Step 7)`
-          - `AI E2E Judge (Step 8.5)`
-          EOF
-          )"
+          COMMENT_BODY="$(printf '### AI Review Override Applied\n\n- Actor: @%s\n- Command: `%s`\n- Workflow run: %s\n\nThis manually marked these PR contexts as `success`:\n- `AI Code Review (Step 7)`\n- `AI E2E Judge (Step 8.5)`\n' "$OVERRIDE_ACTOR" "$OVERRIDE_COMMAND" "$RUN_URL")"
+          gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY"
