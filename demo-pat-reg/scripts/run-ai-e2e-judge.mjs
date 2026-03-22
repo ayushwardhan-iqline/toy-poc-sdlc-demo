@@ -141,18 +141,26 @@ function findPlaywrightReports(dirPath) {
   return reports;
 }
 
-function getChangedFileAttachments(limit = 10) {
+function getChangedFiles() {
   if (!existsSync(changedFilesPath)) {
     return [];
   }
 
-  const changedFiles = readFileSync(changedFilesPath, 'utf8')
+  return readFileSync(changedFilesPath, 'utf8')
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function collectChangedFileAttachments({ limit = 10, include } = {}) {
+  const changedFiles = getChangedFiles();
 
   const attachments = [];
   for (const relPath of changedFiles) {
+    if (include && !include(relPath)) {
+      continue;
+    }
+
     const absolutePath = resolve(repoRoot, relPath);
     if (!existsSync(absolutePath)) {
       continue;
@@ -170,6 +178,33 @@ function getChangedFileAttachments(limit = 10) {
   }
 
   return attachments;
+}
+
+function getChangedFileAttachments(limit = 10) {
+  return collectChangedFileAttachments({ limit });
+}
+
+function getChangedE2eAttachments(limit = 20) {
+  return collectChangedFileAttachments({
+    limit,
+    include: (relPath) => {
+      const normalizedPath = relPath.replaceAll('\\', '/');
+      return (
+        normalizedPath.includes('/apps-e2e/') ||
+        normalizedPath.includes('/playwright.config.') ||
+        normalizedPath.includes('-e2e/') ||
+        normalizedPath.includes('/test-output/playwright/')
+      );
+    },
+  });
+}
+
+export function buildJudgeMessage(hasPlaywrightReports) {
+  if (hasPlaywrightReports) {
+    return 'Review the provided PR diff, Engineering Tasks, changed E2E tests, and Playwright E2E reports. Generate your judgement on testing adequacy and conclude with the CI_DECISION as strictly requested.';
+  }
+
+  return 'Review the provided PR diff, Engineering Tasks, and changed E2E test implementation. No Playwright execution report is attached for this run, so assess whether the E2E tests present appear adequate to cover the task intent, state that execution evidence was unavailable, and conclude with the CI_DECISION as strictly requested.';
 }
 
 function collectScriptContext() {
@@ -295,16 +330,18 @@ export function main() {
 
     const explicitTaskDocs = readLinkedTasksFromManifest();
     const changedFileAttachments = getChangedFileAttachments();
+    const changedE2eAttachments = getChangedE2eAttachments();
     const reportFiles = findPlaywrightReports(resolve(projectRoot));
 
     if (reportFiles.length === 0) {
-      throw new Error('No Playwright report files found for Step 8.5 judge. Run Step 8 first.');
+      console.log('No Playwright report files found; reviewing changed E2E test implementation only.');
     }
 
     const judgeAttachments = [
       prDiffPath, 
       changedFilesPath, 
       ...explicitTaskDocs,
+      ...changedE2eAttachments,
       ...changedFileAttachments,
       ...reportFiles,
     ];
@@ -314,8 +351,7 @@ export function main() {
       agentName: 'step8.5-e2e-judge',
       outputPath: finalReportPath,
       attachments: judgeAttachments,
-      message:
-        'Review the provided PR diff, Engineering Tasks, and Playwright E2E reports. Generate your judgement on testing adequacy and conclude with the CI_DECISION as strictly requested.',
+      message: buildJudgeMessage(reportFiles.length > 0),
     });
 
     const finalReport = readFileSync(finalReportPath, 'utf8');

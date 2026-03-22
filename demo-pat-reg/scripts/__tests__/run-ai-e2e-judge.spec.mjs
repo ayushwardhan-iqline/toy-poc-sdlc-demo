@@ -15,7 +15,7 @@ vi.mock('node:child_process', () => ({
 
 import { writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { evaluateGate, hasBlockingSeverityLabel, isPlaywrightReportPath, runAgent, stripAnsi } from '../run-ai-e2e-judge.mjs';
+import { buildJudgeMessage, evaluateGate, hasBlockingSeverityLabel, isPlaywrightReportPath, runAgent, stripAnsi } from '../run-ai-e2e-judge.mjs';
 
 describe('run-ai-e2e-judge.mjs', () => {
   describe('stripAnsi', () => {
@@ -42,6 +42,16 @@ describe('run-ai-e2e-judge.mjs', () => {
 
     it('rejects unrelated report files', () => {
       expect(isPlaywrightReportPath('apps/backend-e2e/test-output/vitest/coverage/index.html')).toBe(false);
+    });
+  });
+
+  describe('buildJudgeMessage', () => {
+    it('mentions Playwright reports when execution evidence exists', () => {
+      expect(buildJudgeMessage(true)).toContain('Playwright E2E reports');
+    });
+
+    it('falls back to implementation review when no report is attached', () => {
+      expect(buildJudgeMessage(false)).toContain('No Playwright execution report is attached');
     });
   });
 
