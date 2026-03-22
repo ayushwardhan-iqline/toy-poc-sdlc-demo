@@ -1,7 +1,10 @@
 import { spawnSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const command = process.platform === 'win32' ? 'bun.exe' : 'bun';
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const projectRoot = resolve(scriptDir, '..');
 const baseEnv = {
   ...process.env,
   HOST: process.env.HOST || '127.0.0.1',
@@ -10,6 +13,7 @@ const baseEnv = {
 
 function run(args, options = {}) {
   return spawnSync(command, args, {
+    cwd: projectRoot,
     env: baseEnv,
     ...options,
   });

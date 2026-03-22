@@ -73,6 +73,8 @@ describe('run-backend-integration.mjs', () => {
     expect(caughtError).toBeDefined();
     expect(caughtError.message).toContain('TEST_ABORT_EXIT_0');
     expect(spawnSync).toHaveBeenCalledTimes(2);
+    expect(spawnSync.mock.calls[0][2].cwd).toContain('demo-pat-reg');
+    expect(spawnSync.mock.calls[1][2].cwd).toContain('demo-pat-reg');
     expect(exitMock).toHaveBeenCalledWith(0);
   });
 
