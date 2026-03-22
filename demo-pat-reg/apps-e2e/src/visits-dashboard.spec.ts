@@ -12,6 +12,8 @@ import { expect, test } from './fixtures';
  */
 test.describe('IQ-002 – Recent Visits Dashboard', () => {
   test('displays recent visits on the dashboard', async ({ page, db }) => {
+    page.on('console', msg => console.log(`[CHROMIUM] ${msg.text()}`));
+    
     const testPatient = {
       id: randUuid(),
       salutation: 'Mr.' as const,

@@ -16,6 +16,7 @@ export const apiClient = {
       });
     }
 
+    console.log('[FRONTEND] Fetching:', url.toString());
     const response = await fetch(url.toString(), {
       ...options,
       headers: {

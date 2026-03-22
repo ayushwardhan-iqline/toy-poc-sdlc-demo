@@ -14,11 +14,11 @@ export default defineConfig(() => ({
   },
   server: {
     port: 4200,
-    host: 'localhost',
+    host: process.env.HOST ?? 'localhost',
   },
   preview: {
     port: 4200,
-    host: 'localhost',
+    host: process.env.HOST ?? 'localhost',
   },
   plugins: [react(), tailwindcss()],
   test: {

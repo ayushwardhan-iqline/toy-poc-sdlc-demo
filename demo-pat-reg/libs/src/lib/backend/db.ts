@@ -5,6 +5,7 @@ import postgres from 'postgres';
 // Fall back to individual DB_* vars for local dev convenience.
 const connectionString =
   process.env.DATABASE_URL ||
+  process.env.DEV_DATABASE_URL ||
   (() => {
     const user = process.env.DB_USER ?? 'postgres';
     const password = process.env.DB_PASSWORD ?? 'password';

@@ -22,7 +22,9 @@ export function getTestDbUrl() {
   return resolvedTestDbUrl;
 }
 
-const baseURL = process.env.BASE_URL ?? 'http://localhost:4200';
+const backendBaseUrl = process.env.BACKEND_BASE_URL ?? 'http://127.0.0.1:3000';
+const apiBaseUrl = process.env.VITE_API_URL ?? `${backendBaseUrl}/api`;
+const baseURL = process.env.BASE_URL ?? 'http://127.0.0.1:4200';
 
 export default defineConfig({
   ...nxE2EPreset(__filename, { testDir: './src' }),
@@ -47,21 +49,28 @@ export default defineConfig({
       // Pass DATABASE_URL explicitly so the backend process targets the test DB.
       // This is the proper way to inject env into a Playwright webServer process.
       command: 'bun nx run @demo-pat-reg/backend:serve',
-      url: 'http://localhost:3000',
+      url: 'http://127.0.0.1:3000',
       reuseExistingServer: !process.env.CI,
       cwd: workspaceRoot,
       stdout: 'pipe',
       env: {
         ...(process.env as Record<string, string>),
         DATABASE_URL: resolvedTestDbUrl ?? '',
+        HOST: '127.0.0.1',
+        PORT: '3000',
       },
     },
     {
       command: 'bun nx run @demo-pat-reg/frontend:preview',
-      url: 'http://localhost:4200',
+      url: 'http://127.0.0.1:4200',
       reuseExistingServer: !process.env.CI,
       cwd: workspaceRoot,
       stdout: 'pipe',
+      env: {
+        ...(process.env as Record<string, string>),
+        HOST: '127.0.0.1',
+        VITE_API_URL: apiBaseUrl,
+      },
     },
   ],
 
