@@ -28,6 +28,11 @@ const baseURL = process.env.BASE_URL ?? 'http://127.0.0.1:4200';
 
 export default defineConfig({
   ...nxE2EPreset(__filename, { testDir: './src' }),
+  outputDir: 'test-output/playwright/output',
+  reporter: [
+    ['list'],
+    ['html', { outputFolder: 'test-output/playwright/report', open: 'never' }],
+  ],
 
   // Runs once before the entire test suite: creates the DB and pushes the schema.
   globalSetup: require.resolve('./src/global-setup.ts'),

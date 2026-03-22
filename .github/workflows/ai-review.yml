@@ -253,13 +253,7 @@ jobs:
               append_comment_section "E2E Judge Review" "reports/e2e-judge-review.md"
             } > ai-review-comment.md
 
-            python3 - <<'PY' > ai-review-comment.json
-            import json
-            from pathlib import Path
-
-            body = Path("ai-review-comment.md").read_text(encoding="utf-8")
-            print(json.dumps({"body": body}))
-            PY
+            jq -Rs '{body: .}' ai-review-comment.md > ai-review-comment.json
 
             COMMENT_ID=$(gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments --paginate --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$COMMENT_MARKER\"))) | .id" | tail -n 1)
 
