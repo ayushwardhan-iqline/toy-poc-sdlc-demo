@@ -74,6 +74,13 @@ describe('collect-ai-context.mjs', () => {
       expect.arrayContaining(['x', 'nx', 'graph']),
       expect.any(Object)
     );
+
+    const graphInvocation = spawnSync.mock.calls.find(
+      ([command, args]) => command === 'bun' && args.includes('graph')
+    );
+    expect(graphInvocation).toBeDefined();
+    expect(graphInvocation[1]).toContain('--file=reports\\ai-context\\nx-depgraph.json');
+    expect(graphInvocation[1].join(' ')).not.toContain('C:\\Users\\Ayush Wardhan');
   });
 
   it('fails when git is unavailable', () => {

@@ -65,11 +65,15 @@ describe('run-ai-e2e-judge.mjs', () => {
         message: 'judge this',
       });
 
-      expect(spawnSync).toHaveBeenCalledWith(
-        'opencode',
-        expect.arrayContaining(['run', '--agent', 'step8.5-e2e-judge', 'judge this']),
-        expect.any(Object)
-      );
+      const [command, args] = spawnSync.mock.calls[0];
+      expect(command).toBe('opencode');
+      expect(args[0]).toBe('run');
+      expect(args[1]).toBe('judge this');
+      expect(args).toContain('--agent');
+      expect(args).toContain('step8.5-e2e-judge');
+      expect(args).toContain('--file');
+      expect(args.at(-2)).toBe('--file');
+      expect(args.at(-1)).toBe('a.txt');
       expect(writeFileSync).toHaveBeenCalledWith('report.md', 'CI_DECISION: PASS\n', 'utf8');
     });
   });

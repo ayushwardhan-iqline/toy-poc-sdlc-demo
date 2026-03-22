@@ -29,8 +29,9 @@ function runGit(args, options = {}) {
 }
 
 function runBunxNxGraph(outputPath) {
+  const relativeOutputPath = relative(projectRoot, outputPath) || 'nx-depgraph.json';
   // eslint-disable-next-line sonarjs/no-os-command-from-path
-  return spawnSync('bun', ['x', 'nx', 'graph', `--file=${outputPath}`], {
+  return spawnSync('bun', ['x', 'nx', 'graph', `--file=${relativeOutputPath}`], {
     cwd: projectRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],

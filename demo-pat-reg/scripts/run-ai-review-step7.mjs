@@ -85,6 +85,20 @@ function requiredFile(pathToCheck, label) {
   }
 }
 
+function buildOpencodeRunArgs({ agentName, attachments, message }) {
+  const args = ['run'];
+  if (message.trim()) {
+    args.push(message);
+  }
+
+  args.push('--model', model, '--agent', agentName, '--format', 'default', '--dir', projectRoot);
+  for (const filePath of attachments) {
+    args.push('--file', filePath);
+  }
+
+  return args;
+}
+
 
 
 function getChangedFileAttachments(limit = 50) {
@@ -138,11 +152,11 @@ function collectScriptContext() {
 export function runAgent({ title, agentName, outputPath, attachments, message }) {
   const uniqueAttachments = [...new Set(attachments)].filter((pathToFile) => existsSync(pathToFile));
 
-  const args = ['run', '--model', model, '--agent', agentName, '--format', 'default', '--dir', projectRoot];
-  for (const filePath of uniqueAttachments) {
-    args.push('--file', filePath);
-  }
-  args.push(message);
+  const args = buildOpencodeRunArgs({
+    agentName,
+    attachments: uniqueAttachments,
+    message,
+  });
 
   console.log(`Running ${title} with ${uniqueAttachments.length} attached files...`);
 

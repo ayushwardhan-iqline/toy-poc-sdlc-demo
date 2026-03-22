@@ -11,7 +11,7 @@
     {
       "id": "IQ-002",
       "title": "Display recent patient visits on dashboard",
-      "status": "In Progress",
+      "status": "Done",
       "linkedTasks": [
         "ET-002",
         "ET-003",
@@ -40,12 +40,12 @@
     {
       "id": "ET-004",
       "title": "Implement Backend HTTP Handler for Visits",
-      "status": "Todo"
+      "status": "Done"
     },
     {
       "id": "ET-005",
       "title": "Develop Frontend Visits Data Table Component",
-      "status": "Todo"
+      "status": "Done"
     },
     {
       "id": "ET-006",

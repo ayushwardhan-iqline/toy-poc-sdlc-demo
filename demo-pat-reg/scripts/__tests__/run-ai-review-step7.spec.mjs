@@ -88,11 +88,15 @@ describe('run-ai-review-step7.mjs', () => {
         message: 'review this',
       });
 
-      expect(spawnSync).toHaveBeenCalledWith(
-        'opencode',
-        expect.arrayContaining(['run', '--agent', 'step7-architecture-review', 'review this']),
-        expect.any(Object)
-      );
+      const [command, args] = spawnSync.mock.calls[0];
+      expect(command).toBe('opencode');
+      expect(args[0]).toBe('run');
+      expect(args[1]).toBe('review this');
+      expect(args).toContain('--agent');
+      expect(args).toContain('step7-architecture-review');
+      expect(args).toContain('--file');
+      expect(args.at(-2)).toBe('--file');
+      expect(args.at(-1)).toBe('a.md');
       expect(writeFileSync).toHaveBeenCalledWith('review.md', 'CI_DECISION: PASS\n', 'utf8');
     });
   });
