@@ -15,7 +15,7 @@ const modeArg = process.argv.find((arg) => arg.startsWith('--mode=')) ?? '';
 const mode = modeArg.split('=')[1] === 'full' ? 'full' : 'affected';
 
 const model = process.env.OPENCODE_MODEL?.trim() || 'opencode/minimax-m2.5-free';
-const opencodeCommand = process.env.OPENCODE_BIN_PATH?.trim() || 'opencode';
+const shouldPrintOpencodeLogs = process.env.GITHUB_ACTIONS !== 'true' && process.env.OPENCODE_PRINT_LOGS === 'true';
 
 const judgeAgentPath = resolve(agentsDir, 'step8.5-e2e-judge.md');
 const finalReportPath = resolve(reportsDir, 'e2e-judge-review.md');
@@ -52,9 +52,22 @@ export function stripAnsi(value) {
   return output;
 }
 
-function run(command, args, options = {}) {
+function runOpencode(args, options = {}) {
   const cwd = options.cwd ?? projectRoot;
-  return spawnSync(command, args, {
+  const stdio = shouldPrintOpencodeLogs ? ['ignore', 'pipe', 'inherit'] : ['ignore', 'pipe', 'pipe'];
+  // eslint-disable-next-line sonarjs/no-os-command-from-path
+  return spawnSync('opencode', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio,
+    maxBuffer: 10 * 1024 * 1024,
+    ...options,
+  });
+}
+
+function runNode(args, options = {}) {
+  const cwd = options.cwd ?? projectRoot;
+  return spawnSync(process.execPath, args, {
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -69,9 +82,31 @@ function requiredFile(pathToCheck, label) {
   }
 }
 
+function buildOpencodeRunArgs({ agentName, attachments, message }) {
+  const args = ['run'];
+  if (message.trim()) {
+    args.push(message);
+  }
+
+  args.push('--model', model, '--agent', agentName, '--format', 'default', '--dir', projectRoot);
+  if (shouldPrintOpencodeLogs) {
+    args.push('--print-logs');
+  }
+  for (const filePath of attachments) {
+    args.push('--file', filePath);
+  }
+
+  return args;
+}
+
+export function isPlaywrightReportPath(fullPath) {
+  const normalizedPath = fullPath.replaceAll('\\', '/');
+  return normalizedPath.includes('/playwright-report/') || normalizedPath.includes('/test-output/playwright/report/');
+}
+
 function isTargetReportFile(entry, fullPath) {
   if (!entry.isFile()) return false;
-  if (!fullPath.includes('playwright-report')) return false;
+  if (!isPlaywrightReportPath(fullPath)) return false;
   return entry.name === 'index.html' || entry.name.endsWith('.json');
 }
 
@@ -106,18 +141,26 @@ function findPlaywrightReports(dirPath) {
   return reports;
 }
 
-function getChangedFileAttachments(limit = 10) {
+function getChangedFiles() {
   if (!existsSync(changedFilesPath)) {
     return [];
   }
 
-  const changedFiles = readFileSync(changedFilesPath, 'utf8')
+  return readFileSync(changedFilesPath, 'utf8')
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function collectChangedFileAttachments({ limit = 10, include } = {}) {
+  const changedFiles = getChangedFiles();
 
   const attachments = [];
   for (const relPath of changedFiles) {
+    if (include && !include(relPath)) {
+      continue;
+    }
+
     const absolutePath = resolve(repoRoot, relPath);
     if (!existsSync(absolutePath)) {
       continue;
@@ -137,11 +180,38 @@ function getChangedFileAttachments(limit = 10) {
   return attachments;
 }
 
+function getChangedFileAttachments(limit = 10) {
+  return collectChangedFileAttachments({ limit });
+}
+
+function getChangedE2eAttachments(limit = 20) {
+  return collectChangedFileAttachments({
+    limit,
+    include: (relPath) => {
+      const normalizedPath = relPath.replaceAll('\\', '/');
+      return (
+        normalizedPath.includes('/apps-e2e/') ||
+        normalizedPath.includes('/playwright.config.') ||
+        normalizedPath.includes('-e2e/') ||
+        normalizedPath.includes('/test-output/playwright/')
+      );
+    },
+  });
+}
+
+export function buildJudgeMessage(hasPlaywrightReports) {
+  if (hasPlaywrightReports) {
+    return 'Review the provided PR diff, Engineering Tasks, changed E2E tests, and Playwright E2E reports. Generate your judgement on testing adequacy and conclude with the CI_DECISION as strictly requested.';
+  }
+
+  return 'Review the provided PR diff, Engineering Tasks, and changed E2E test implementation. No Playwright execution report is attached for this run, so assess whether the E2E tests present appear adequate to cover the task intent, state that execution evidence was unavailable, and conclude with the CI_DECISION as strictly requested.';
+}
+
 function collectScriptContext() {
   const collectScriptPath = resolve(projectRoot, 'scripts', 'collect-ai-context.mjs');
   requiredFile(collectScriptPath, 'context collector script');
 
-  const result = run(process.execPath, [collectScriptPath, `--mode=${mode}`], {
+  const result = runNode([collectScriptPath, `--mode=${mode}`], {
     stdio: ['ignore', 'inherit', 'inherit'],
   });
 
@@ -154,75 +224,28 @@ function collectScriptContext() {
   }
 }
 
-function readRangeFromManifest() {
-  requiredFile(manifestPath, 'context manifest');
 
+
+function readLinkedTasksFromManifest() {
+  requiredFile(manifestPath, 'context manifest');
   const raw = readFileSync(manifestPath, 'utf8');
   const parsed = JSON.parse(raw);
-  const base = parsed?.range?.base;
-  const head = parsed?.range?.head;
-
-  if (typeof base !== 'string' || typeof head !== 'string' || !base.trim() || !head.trim()) {
-    throw new Error('Context manifest is missing a valid git range.');
-  }
-
-  return { base: base.trim(), head: head.trim() };
-}
-
-function getChangedTaskAndStoryDocs(range) {
-  const diffResult = run(
-    'git',
-    [
-      'diff',
-      '--name-only',
-      '--diff-filter=ACMR',
-      range.base,
-      range.head,
-      '--',
-      'engineering-tasks',
-      'user-stories',
-    ],
-    { cwd: repoRoot }
-  );
-
-  if (diffResult.error) {
-    throw new Error(`Failed to execute git diff for changed task/story docs: ${diffResult.error.message}`);
-  }
-
-  if (diffResult.status !== 0) {
-    throw new Error(diffResult.stderr?.trim() || 'Failed to collect changed task/story docs.');
-  }
-
-  const changedPaths = (diffResult.stdout || '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => line.endsWith('.md'))
-    .filter((line) => line.startsWith('engineering-tasks/') || line.startsWith('user-stories/'));
-
-  const docs = [];
-  for (const relPath of changedPaths) {
-    const absolutePath = resolve(repoRoot, relPath);
-    if (existsSync(absolutePath)) {
-      docs.push(absolutePath);
-    }
-  }
-
-  return docs.sort((a, b) => a.localeCompare(b));
+  const docs = parsed?.linkedTaskDocs || [];
+  return docs.map((p) => resolve(projectRoot, p));
 }
 
 export function runAgent({ title, agentName, outputPath, attachments, message }) {
   const uniqueAttachments = [...new Set(attachments)].filter((pathToFile) => existsSync(pathToFile));
 
-  const args = ['run', '--model', model, '--agent', agentName, '--format', 'default', '--dir', projectRoot];
-  for (const filePath of uniqueAttachments) {
-    args.push('--file', filePath);
-  }
-  args.push(message);
+  const args = buildOpencodeRunArgs({
+    agentName,
+    attachments: uniqueAttachments,
+    message,
+  });
 
   console.log(`Running ${title} with ${uniqueAttachments.length} attached files...`);
 
-  const result = run(opencodeCommand, args);
+  const result = runOpencode(args);
   if (result.error) {
     throw new Error(`${title} failed.\nFailed to execute opencode: ${result.error.message}`);
   }
@@ -305,19 +328,20 @@ export function main() {
     requiredFile(prDiffPath, 'PR diff context');
     requiredFile(changedFilesPath, 'changed files context');
 
-    const range = readRangeFromManifest();
+    const explicitTaskDocs = readLinkedTasksFromManifest();
     const changedFileAttachments = getChangedFileAttachments();
+    const changedE2eAttachments = getChangedE2eAttachments();
     const reportFiles = findPlaywrightReports(resolve(projectRoot));
-    const changedTaskAndStoryDocs = getChangedTaskAndStoryDocs(range);
 
     if (reportFiles.length === 0) {
-      throw new Error('No Playwright report files found for Step 8.5 judge. Run Step 8 first.');
+      console.log('No Playwright report files found; reviewing changed E2E test implementation only.');
     }
 
     const judgeAttachments = [
       prDiffPath, 
       changedFilesPath, 
-      ...changedTaskAndStoryDocs,
+      ...explicitTaskDocs,
+      ...changedE2eAttachments,
       ...changedFileAttachments,
       ...reportFiles,
     ];
@@ -327,12 +351,13 @@ export function main() {
       agentName: 'step8.5-e2e-judge',
       outputPath: finalReportPath,
       attachments: judgeAttachments,
-      message:
-        'Review the provided PR diff, Engineering Tasks, and Playwright E2E reports. Generate your judgement on testing adequacy and conclude with the CI_DECISION as strictly requested.',
+      message: buildJudgeMessage(reportFiles.length > 0),
     });
 
     const finalReport = readFileSync(finalReportPath, 'utf8');
     const gate = evaluateGate(finalReport);
+    console.log(`E2E Judge report written to ${relative(projectRoot, finalReportPath)}.`);
+    console.log(`CI_DECISION: ${gate.ok ? 'PASS' : 'FAIL'}`);
 
     if (!gate.ok) {
       console.error(gate.reason);

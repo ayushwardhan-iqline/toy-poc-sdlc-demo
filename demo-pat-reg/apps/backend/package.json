@@ -3,8 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "test:unit": "jest --passWithNoTests",
-    "test:coverage": "jest --coverage --passWithNoTests",
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "db:seed": "bun run src/db/seed.ts",
     "test:integration": "bun ../../scripts/run-backend-integration.mjs"
   },
   "nx": {
@@ -101,11 +102,6 @@
           }
         }
       },
-      "test": {
-        "options": {
-          "passWithNoTests": true
-        }
-      },
       "docker:build": {
         "dependsOn": [
           "build",
@@ -117,5 +113,8 @@
   "dependencies": {
     "@demo-pat-reg/shared": "0.0.1",
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@ngneat/falso": "^8.0.2"
   }
 }

@@ -2,8 +2,22 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "allowJs": true,
+    // "bundler" matches the resolution strategy used by the libs and backend app.
+    // This is required for two reasons:
+    //  1. TypeScript project references to libs/tsconfig.lib.json only work when
+    //     both the referencing and referenced configs use compatible module resolution.
+    //  2. @ngneat/falso ships types only at index.cjs.d.ts (no "types" field in
+    //     its package.json), which "bundler" can resolve via CJS fallback while
+    //     "nodenext" cannot.
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["esnext", "dom"],
     "outDir": "out-tsc/playwright",
-    "sourceMap": false
+    "sourceMap": false,
+    "types": ["node"],
+    "paths": {
+      "@demo-pat-reg/shared": ["../libs/src/index.ts"]
+    }
   },
   "include": [
     "**/*.ts",
@@ -15,5 +29,13 @@
     "src/**/*.test.js",
     "src/**/*.d.ts"
   ],
-  "exclude": ["out-tsc", "test-output"]
+  "exclude": ["out-tsc", "test-output"],
+  // Nx TypeScript sync manages this reference automatically based on the dependency graph.
+  // Points to the library config directly (not the solution-style tsconfig.json), matching
+  // the approach used by apps/backend/tsconfig.app.json.
+  "references": [
+    {
+      "path": "../libs"
+    }
+  ]
 }

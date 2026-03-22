@@ -7,6 +7,18 @@
       "linkedTasks": [
         "ET-001"
       ]
+    },
+    {
+      "id": "IQ-002",
+      "title": "Display recent patient visits on dashboard",
+      "status": "Done",
+      "linkedTasks": [
+        "ET-002",
+        "ET-003",
+        "ET-004",
+        "ET-005",
+        "ET-007"
+      ]
     }
   ],
   "engineeringTasks": [
@@ -14,6 +26,37 @@
       "id": "ET-001",
       "title": "Example Task",
       "status": "Todo"
+    },
+    {
+      "id": "ET-002",
+      "title": "Create Shared Contracts for Visit Queries",
+      "status": "Done"
+    },
+    {
+      "id": "ET-003",
+      "title": "Implement Backend Data Access & Use Case for Listing Visits",
+      "status": "Done"
+    },
+    {
+      "id": "ET-004",
+      "title": "Implement Backend HTTP Handler for Visits",
+      "status": "Done"
+    },
+    {
+      "id": "ET-005",
+      "title": "Develop Frontend Visits Data Table Component",
+      "status": "Done"
+    },
+    {
+      "id": "ET-006",
+      "title": "Establish Production-Grade CI/CD Pipeline",
+      "type": "Infrastructure Chore",
+      "status": "Done"
+    },
+    {
+      "id": "ET-007",
+      "title": "Database Seeding Strategy using Falso and Drizzle",
+      "status": "Done"
     }
   ]
 }

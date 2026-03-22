@@ -19,4 +19,6 @@ COPY dist .
 
 RUN bun install
 
+USER bun
+
 CMD [ "bun", "run", "main.mjs" ]

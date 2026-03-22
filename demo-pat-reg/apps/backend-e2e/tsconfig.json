@@ -2,10 +2,13 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "out-tsc/@demo-pat-reg/backend-e2e",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "noUnusedLocals": false,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "types": ["vitest/globals", "node"]
   },
-  "include": ["jest.config.ts", "src/**/*.ts"],
+  "include": ["vitest.config.ts", "src/**/*.ts"],
   "references": []
 }

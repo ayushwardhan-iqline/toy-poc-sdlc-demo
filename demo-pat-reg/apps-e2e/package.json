@@ -2,9 +2,21 @@
   "name": "@demo-pat-reg/apps-e2e",
   "version": "0.0.1",
   "private": true,
+  "dependencies": {
+    "@demo-pat-reg/shared": "0.0.1",
+    "@ngneat/falso": "^8.0.2",
+    "drizzle-orm": "^0.45.1",
+    "postgres": "^3.4.5"
+  },
   "nx": {
     "implicitDependencies": [
-      "@demo-pat-reg/apps"
-    ]
+      "@demo-pat-reg/frontend",
+      "@demo-pat-reg/backend"
+    ],
+    "targets": {
+      "e2e": {
+        "dependsOn": ["^build"]
+      }
+    }
   }
 }

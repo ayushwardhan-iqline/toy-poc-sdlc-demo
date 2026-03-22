@@ -8,14 +8,14 @@
     ],
     "targets": {
       "e2e": {
-        "executor": "@nx/jest:jest",
-        "outputs": [
-          "{projectRoot}/test-output/jest/coverage"
-        ],
+        "executor": "nx:run-commands",
         "options": {
-          "jestConfig": "apps/backend-e2e/jest.config.cts",
-          "passWithNoTests": true
+          "command": "bunx vitest run",
+          "cwd": "apps/backend-e2e"
         },
+        "outputs": [
+          "{projectRoot}/test-output/vitest/coverage"
+        ],
         "dependsOn": [
           "@demo-pat-reg/backend:build",
           "@demo-pat-reg/backend:serve"

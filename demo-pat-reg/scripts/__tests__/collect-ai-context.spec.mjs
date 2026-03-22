@@ -4,7 +4,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 vi.mock('node:fs', () => ({
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
-  existsSync: vi.fn(() => false),
+  existsSync: vi.fn(() => true),
+  readdirSync: vi.fn(() => []),
 }));
 
 vi.mock('node:child_process', () => ({
@@ -51,7 +52,7 @@ describe('collect-ai-context.mjs', () => {
         return { status: 0, stdout: 'file1.js\nsrc/utils.js\n' };
       }
 
-      if (argsStr.includes('nx gra')) {
+      if (argsStr.includes('x nx graph')) {
         return { status: 1, stderr: 'Graph failed' };
       }
 
@@ -67,6 +68,19 @@ describe('collect-ai-context.mjs', () => {
     expect(writeFileSync).toHaveBeenCalledTimes(3);
     expect(exitMock).not.toHaveBeenCalled();
     expect(logMock).toHaveBeenCalledWith(expect.stringContaining('AI context collected'));
+    expect(spawnSync).toHaveBeenCalledWith('git', ['--version'], expect.any(Object));
+    expect(spawnSync).toHaveBeenCalledWith(
+      'bun',
+      expect.arrayContaining(['x', 'nx', 'graph']),
+      expect.any(Object)
+    );
+
+    const graphInvocation = spawnSync.mock.calls.find(
+      ([command, args]) => command === 'bun' && args.includes('graph')
+    );
+    expect(graphInvocation).toBeDefined();
+    expect(graphInvocation[1]).toContain('--file=reports\\ai-context\\nx-depgraph.json');
+    expect(graphInvocation[1].join(' ')).not.toContain('C:\\Users\\Ayush Wardhan');
   });
 
   it('fails when git is unavailable', () => {

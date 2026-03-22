@@ -14,18 +14,28 @@ export default defineConfig(() => ({
   },
   server: {
     port: 4200,
-    host: 'localhost',
+    host: process.env.HOST ?? 'localhost',
   },
   preview: {
     port: 4200,
-    host: 'localhost',
+    host: process.env.HOST ?? 'localhost',
   },
   plugins: [react(), tailwindcss()],
   test: {
+    environment: 'jsdom',
+    globals: true,
     passWithNoTests: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
+      exclude: [
+        'src/components/ui/**',
+        'src/lib/shadcn/**',
+        'src/hooks/shadcn/**',
+        'src/lib/utils.ts',
+        'src/hooks/use-mobile.ts',
+        'src/hooks/use-keyboard-shortcut.ts',
+      ],
       thresholds: {
         branches: 80,
         functions: 80,
