@@ -75,6 +75,8 @@ jobs:
         run: bun run db:push
 
       - name: E2E Tests (Step 8)
+        env:
+          DATABASE_URL: postgresql://user:password@localhost:5432/hims
         run: bun run ci:affected:test:e2e
 
       - name: Upload E2E Artifacts

@@ -1,18 +1,12 @@
 import { test as base } from '@playwright/test';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { testDbUrl } from '../../playwright.config';
-
-// Module-level singletons: shared across all tests in a single Playwright worker,
-// matching Playwright's concurrency model. This is the same database the backend
-// webServer is pointed at via playwright.config.ts → webServer.env.
-const queryClient = postgres(testDbUrl);
-const dbInstance = drizzle(queryClient);
+import { getTestDbUrl } from '../../playwright.config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixture Types
 // ─────────────────────────────────────────────────────────────────────────────
-export type DrizzleDb = typeof dbInstance;
+export type DrizzleDb = ReturnType<typeof drizzle>;
 
 export type AppFixtures = {
   /** Direct Drizzle ORM access so individual tests can INSERT / SELECT / DELETE
@@ -30,9 +24,12 @@ export const test = base.extend<AppFixtures>({
   // Provides raw Drizzle access for test-level seeding / teardown.
   // eslint-disable-next-line no-empty-pattern
   db: async ({}, use) => {
+    const queryClient = postgres(getTestDbUrl());
+    const dbInstance = drizzle(queryClient);
     await use(dbInstance);
     // No per-test cleanup here by design – tests should use explicit WHERE
     // clauses against the ids they create so they stay hermetic.
+    await queryClient.end();
   },
 
   // Injects a valid auth token before any navigation happens.

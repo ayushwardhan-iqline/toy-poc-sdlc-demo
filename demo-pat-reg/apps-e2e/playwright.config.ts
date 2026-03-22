@@ -6,9 +6,21 @@ import { workspaceRoot } from '@nx/devkit';
 // Locally we always use an isolated test database — we deliberately do NOT fall
 // back to process.env.DATABASE_URL here because the workspace .env sets it to
 // the dev database (demo_pat_reg), and we must never run tests against that.
-export const testDbUrl = process.env.CI
-  ? (process.env.DATABASE_URL as string)
-  : (process.env.E2E_DB_URL as string);
+const resolvedTestDbUrl = process.env.CI
+  ? process.env.DATABASE_URL?.trim()
+  : process.env.E2E_DB_URL?.trim();
+
+export function getTestDbUrl() {
+  if (!resolvedTestDbUrl) {
+    throw new Error(
+      process.env.CI
+        ? 'E2E test database is not configured. Set DATABASE_URL for the Playwright E2E step in CI.'
+        : 'E2E test database is not configured. Set E2E_DB_URL before running Playwright locally.'
+    );
+  }
+
+  return resolvedTestDbUrl;
+}
 
 const baseURL = process.env.BASE_URL ?? 'http://localhost:4200';
 
@@ -41,7 +53,7 @@ export default defineConfig({
       stdout: 'pipe',
       env: {
         ...(process.env as Record<string, string>),
-        DATABASE_URL: testDbUrl,
+        DATABASE_URL: resolvedTestDbUrl ?? '',
       },
     },
     {

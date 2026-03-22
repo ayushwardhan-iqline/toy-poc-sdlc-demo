@@ -1,7 +1,7 @@
 import { execSync } from 'child_process';
 import { workspaceRoot } from '@nx/devkit';
 import postgres from 'postgres';
-import { testDbUrl } from '../playwright.config';
+import { getTestDbUrl } from '../playwright.config';
 
 /**
  * Playwright Global Setup — runs once before the entire test suite.
@@ -15,7 +15,7 @@ import { testDbUrl } from '../playwright.config';
  * without any manual database prep.
  */
 export default async function globalSetup(): Promise<void> {
-  const dbUrl = testDbUrl;
+  const dbUrl = getTestDbUrl();
 
   // Derive the admin connection string by targeting the postgres system DB
   // so we can issue a CREATE DATABASE statement if needed.
