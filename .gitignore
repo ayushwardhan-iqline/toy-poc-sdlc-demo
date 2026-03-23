@@ -1,3 +1,7 @@
 .secrets
 event.json
 local-notes/
+
+# .claude — only track the skills symlink
+.claude/*
+!.claude/skills

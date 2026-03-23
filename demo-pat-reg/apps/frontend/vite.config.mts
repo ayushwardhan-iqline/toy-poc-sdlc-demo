@@ -17,7 +17,7 @@ export default defineConfig(() => ({
     host: process.env.HOST ?? 'localhost',
   },
   preview: {
-    port: 4200,
+    port: Number(process.env.PORT ?? 4200),
     host: process.env.HOST ?? 'localhost',
   },
   plugins: [react(), tailwindcss()],

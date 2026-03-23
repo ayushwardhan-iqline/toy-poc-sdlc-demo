@@ -45,7 +45,7 @@
     "ci:all": "bun run ci:full:all",
     "ci:pr": "bun run ci:affected:all",
     "ci:pr:with-e2e-judge": "bun run ci:affected:with-e2e-judge",
-    "ci:local:pr": "act pull_request -W ../.github/workflows/ci.yml --secret-file .secrets",
+    "ci:local:pr": "act pull_request -C .. --secret-file .secrets -e event.json --env SSH_AUTH_SOCK=/ssh-agent --container-options \"-v $SSH_AUTH_SOCK:/ssh-agent\"",
     "test:scripts": "vitest run -c ./scripts/vitest.config.ts ./scripts"
   },
   "private": true,

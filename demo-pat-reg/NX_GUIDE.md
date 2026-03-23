@@ -247,6 +247,40 @@ Using `nx show project <name>` is invaluable when you want to know what tasks an
 
 ---
 
+## 🏗️ Local CI (act)
+
+Run the full GitHub Actions CI pipeline locally using [act](https://github.com/nektos/act). This requires Docker and an SSH agent with your GitHub key loaded.
+
+### Prerequisites
+
+- Docker must be running
+- `.secrets` file at the repo root containing `GITHUB_TOKEN=<your-token>`
+- `event.json` at the repo root providing simulated PR context for `affected` commands
+
+### Windows
+
+```powershell
+# From the repo root (toy-poc-sdlc-demo/):
+act pull_request --secret-file .secrets -e event.json
+```
+
+### WSL2 / Linux
+
+SSH agent forwarding is needed so the container can `git fetch` from GitHub:
+
+```bash
+# 1. Start ssh-agent and add your key (once per terminal session)
+eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_ed25519
+
+# 2. From demo-pat-reg/
+bun run ci:local:pr
+
+# Or directly from the repo root (toy-poc-sdlc-demo/):
+act pull_request --secret-file .secrets -e event.json --env SSH_AUTH_SOCK=/ssh-agent --container-options "-v $SSH_AUTH_SOCK:/ssh-agent"
+```
+
+---
+
 ## 💡 Tips
 
 - **Nx caches everything**. If you run a build twice with no changes, the second run is instant.

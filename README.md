@@ -6,6 +6,10 @@ What it is:
 - Has CI pipeline stages defined
 - Has a simple directory of markdown files for "user-story" docs
 
+## Setup Notes
+
+**Windows (non-WSL):** This repo uses symlinks. Run `git config core.symlinks true` before cloning, or re-clone after setting it, so that `.claude/skills` resolves correctly.
+
 ## SDLC Infrastructure
 This repository uses a structured approach for managing the development lifecycle:
 - `user-stories/`: Contains markdown files representing user requirements, following the Mike Cohn format with Gherkin acceptance criteria (see `user-story` skill).
