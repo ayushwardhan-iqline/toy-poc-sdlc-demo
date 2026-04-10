@@ -17,7 +17,9 @@
         "ET-003",
         "ET-004",
         "ET-005",
-        "ET-007"
+        "ET-007",
+        "ET-008",
+        "ET-009"
       ]
     }
   ],
@@ -56,6 +58,16 @@
     {
       "id": "ET-007",
       "title": "Database Seeding Strategy using Falso and Drizzle",
+      "status": "Done"
+    },
+    {
+      "id": "ET-008",
+      "title": "Backend Core: Centralized Error Handling & Async Handler",
+      "status": "Done"
+    },
+    {
+      "id": "ET-009",
+      "title": "Repository Dependency Injection for Offline-Ready Architecture",
       "status": "Done"
     }
   ]

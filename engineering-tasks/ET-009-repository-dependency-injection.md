@@ -28,10 +28,10 @@ Repository functions currently import the Drizzle `db` singleton at module level
   - Handler spec uses a module mock for the use-case, so no spec changes needed here
 
 ## Definition of Done
-- [ ] `visit.repo.ts` accepts `db` as a parameter; no module-level db import
-- [ ] `list-recent-visits.ts` accepts `db` as a parameter; no module-level db import
-- [ ] The concrete Drizzle `db` is injected only at the handler level in `visit.handlers.ts`
-- [ ] `visit.repo.spec.ts` tests pass `db` directly (no module mock needed)
-- [ ] All unit tests pass (`npx nx run @demo-pat-reg/shared:test`)
-- [ ] No lint or type-check errors (`npx nx run @demo-pat-reg/shared:lint`)
-- [ ] The architecture is now offline-ready: swapping the `db` arg to an IndexedDB adapter in the handler would require zero changes to repo or use-case files
+- [x] `visit.repo.ts` accepts `db` as a parameter; no module-level db import
+- [x] `list-recent-visits.ts` accepts `db` as a parameter; no module-level db import
+- [x] The concrete Drizzle `db` is injected only at the handler level in `visit.handlers.ts`
+- [x] `visit.repo.spec.ts` tests pass `db` directly (no module mock needed)
+- [x] All unit tests pass (`npx nx run @demo-pat-reg/shared:test`)
+- [x] No lint or type-check errors (`npx nx run @demo-pat-reg/shared:lint`)
+- [x] The architecture is now offline-ready: swapping the `db` arg to an IndexedDB adapter in the handler would require zero changes to repo or use-case files
